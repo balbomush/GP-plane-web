@@ -1,0 +1,9 @@
+{
+  "name": "gp-plane-web-app",
+  "version": "0.1.0-s2a.1",
+  "private": true,
+  "type": "module",
+  "scripts": {"build": "vite build"},
+  "dependencies": {"@gp-plane/gp-ui": "file:vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz", "svelte": "5.57.2"},
+  "devDependencies": {"vite": "6.4.4", "@sveltejs/vite-plugin-svelte": "5.1.1", "typescript": "5.9.3"}
+}

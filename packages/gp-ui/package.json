@@ -1,0 +1,13 @@
+{
+  "name": "@gp-plane/gp-ui",
+  "version": "0.1.0-s2a.1",
+  "type": "module",
+  "license": "MIT",
+  "files": ["src", "LICENSE", "README.md"],
+  "exports": {
+    ".": {"types": "./src/index.d.ts", "svelte": "./src/Results.svelte", "default": "./src/Results.svelte"},
+    "./format": {"types": "./src/format.d.ts", "default": "./src/format.js"}
+  },
+  "peerDependencies": {"svelte": "^5.0.0"},
+  "devDependencies": {"svelte": "5.57.2"}
+}

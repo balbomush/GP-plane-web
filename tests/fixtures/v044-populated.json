@@ -1,0 +1,65 @@
+{
+  "candidates": [
+    {
+      "id": "s2a-0",
+      "protocol": "tls",
+      "args": "--payload=tls_client_hello  --lua-desync=fake:blob=@/opt/zapret2/files/fake.bin --comment=\"тест α\"",
+      "status": "working",
+      "first_seen_at": "",
+      "last_seen_at": "",
+      "fragmentation_class": "position_free",
+      "fragmentation_safe": true,
+      "fragmentation_reason": "fake/common mode has no explicit split position",
+      "family": "fake",
+      "family_key": "tls:fake:--payload+desync=fake",
+      "family_rank": 50,
+      "family_reason": "matched fake marker",
+      "seen": [
+        {
+          "domain": "example.com"
+        },
+        {
+          "domain": "video.example.net"
+        }
+      ]
+    },
+    {
+      "id": "s2a-1",
+      "protocol": "quic",
+      "args": "--payload=quic_initial --lua-desync=multidisorder:pos=1,midsld --comment=\"<img src=x onerror=alert(1)>\"",
+      "status": "working",
+      "first_seen_at": "",
+      "last_seen_at": "",
+      "fragmentation_class": "position_free",
+      "fragmentation_safe": true,
+      "fragmentation_reason": "QUIC/UDP strategy is not tied to TLS ClientHello byte positions",
+      "family": "udp/quic",
+      "family_key": "quic:udp/quic:--payload+desync=multidisorder",
+      "family_rank": 110,
+      "family_reason": "QUIC/UDP strategy",
+      "seen": [
+        {
+          "domain": "example.com"
+        },
+        {
+          "domain": "video.example.net"
+        }
+      ]
+    }
+  ],
+  "total": 2,
+  "limit": 50,
+  "offset": 0,
+  "has_more": false,
+  "tested_domains": [
+    "example.com",
+    "video.example.net"
+  ],
+  "version": {
+    "strategy_count": 2,
+    "result_count": 4,
+    "domain_count": 2,
+    "strategy_signature": 579,
+    "result_signature": 92
+  }
+}

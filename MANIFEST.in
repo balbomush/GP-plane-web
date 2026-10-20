@@ -1,0 +1,4 @@
+include LICENSE THIRD_PARTY_NOTICES.md PROVENANCE.json
+recursive-include src/gp_control_plane_web/static *
+include src/gp_control_plane_web/openapi.json
+recursive-include scripts *.sh *.py

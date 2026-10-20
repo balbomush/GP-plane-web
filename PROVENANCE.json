@@ -1,0 +1,97 @@
+{
+  "repository": "https://github.com/balbomush/GP-access-control-plane",
+  "commit": "66b5898d6c30544df00d928126ecc5a38ea6fffc",
+  "license": "MIT",
+  "files": [
+    {
+      "source": "LICENSE",
+      "target": "LICENSE",
+      "source_sha256": "82d3f632ea0d6c3ee0525a5299e1300f4ab87522a4ca892e23d64ff4b9f7867f"
+    },
+    {
+      "source": "THIRD_PARTY_NOTICES.md",
+      "target": "THIRD_PARTY_NOTICES.md",
+      "source_sha256": "0fa5c29ad1e2e6035a9cbd0666e1fc8f12a2c2e3e256c8dfa2b9c707d2031701"
+    },
+    {
+      "source": "src/gp_control_plane/web/web_app.py",
+      "target": "src/gp_control_plane_web/web_app.py",
+      "source_sha256": "24af6ab7a04899b02f56618a904aea74e5b69680c39c9bf48688b6ca1a8b9d9a"
+    },
+    {
+      "source": "src/gp_control_plane/web/core_client.py",
+      "target": "src/gp_control_plane_web/core_client.py",
+      "source_sha256": "7c9119fcc0bfbf284b5af4067f523e6fdab4fd671a0c2e651896e6c624887463"
+    },
+    {
+      "source": "src/gp_control_plane/web/cheroot_connection.py",
+      "target": "src/gp_control_plane_web/cheroot_connection.py",
+      "source_sha256": "5cffde8b8683f4afa517d5a90a94c6758af03ca165e43d3039aaea98d79fa4e9"
+    },
+    {
+      "source": "src/gp_control_plane/web/http_runtime.py",
+      "target": "src/gp_control_plane_web/http_runtime.py",
+      "source_sha256": "129c16b65f42401d4e95a657fc221f59c232844b7b307d24a27f2c449ebbed13"
+    },
+    {
+      "source": "src/gp_control_plane/web/http_body.py",
+      "target": "src/gp_control_plane_web/http_body.py",
+      "source_sha256": "90272c95571ba71ff6a1656212a4a576c031a680c9c2eea76906950171179cb9"
+    },
+    {
+      "source": "src/gp_control_plane/web/stream_admission.py",
+      "target": "src/gp_control_plane_web/stream_admission.py",
+      "source_sha256": "0949aff92c815c6b5aeed2930ae66c5c739c2b0fd1da84909b04dc24a3b6e595"
+    },
+    {
+      "source": "src/gp_control_plane/web/legacy_http.py",
+      "target": "src/gp_control_plane_web/legacy_http.py",
+      "source_sha256": "73723213ce5ba0115a4a840b6125ceae595e686ccaf1eeed81096f9744d39274"
+    },
+    {
+      "source": "src/gp_control_plane/web/errors.py",
+      "target": "src/gp_control_plane_web/errors.py",
+      "source_sha256": "83f1f455423c64b9df820e307f6bfa0527f98b04e3a9a3fd89c39a0512dd4a84"
+    },
+    {
+      "source": "src/gp_control_plane/web/routes.py",
+      "target": "src/gp_control_plane_web/routes.py",
+      "source_sha256": "337f73dc556e2fc998649e344885ede012122762b819a2c5d822762e739b22a0"
+    },
+    {
+      "source": "src/gp_control_plane/resource_budget.py",
+      "target": "src/gp_control_plane_web/resource_budget.py",
+      "source_sha256": "846902754db0b3ba7ad7684e716f9cf179d2b0f588cde624ee7a54ec0c73039c"
+    },
+    {
+      "source": "src/gp_control_plane/application/web_view_contracts.py",
+      "target": "src/gp_control_plane_web/view_contracts.py",
+      "source_sha256": "79e6ff0abf7e5651542b704d4fb4018fb7fb5bd756b46c636720209732be5f07"
+    },
+    {
+      "source": "openapi.json",
+      "target": "src/gp_control_plane_web/openapi.json",
+      "source_sha256": "2487334c7f896b9f8cfe574830db07813c6bd437e445de45c7c9b42f9f84bedd"
+    },
+    {
+      "source": "src/gp_control_plane/web/ui_assets/scripts/api-client.js",
+      "target": "frontend/src/api-client.js",
+      "source_sha256": "1f16803a9d22ba3078e9d386f849507ac701fd18856f99fb705383c8d280ce8a"
+    },
+    {
+      "source": "src/gp_control_plane/web/ui_assets/scripts/session-controller.js",
+      "target": "frontend/src/session-controller.js",
+      "source_sha256": "7f394481dab61a2368e18b6a57c34f41d0f35a73be393f07f09617e5c5e8942b"
+    },
+    {
+      "source": "src/gp_control_plane/web/ui_assets/scripts/candidate-selection.js",
+      "target": "packages/gp-ui/src/selection.js",
+      "source_sha256": "37acd53bd932b28a6b6715093c838a644cdfa99197e3981bb2e3e312aea4422b"
+    },
+    {
+      "source": "LICENSE",
+      "target": "packages/gp-ui/LICENSE",
+      "source_sha256": "82d3f632ea0d6c3ee0525a5299e1300f4ab87522a4ca892e23d64ff4b9f7867f"
+    }
+  ]
+}

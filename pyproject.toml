@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gp-plane-web"
+version = "0.1.0.dev0"
+description = "Independent Bottle/Cheroot Web client for GP Plane Core"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = ["bottle==0.13.4", "cheroot==11.1.2"]
+
+[project.scripts]
+gp-web = "gp_control_plane_web.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+
+[tool.setuptools.package-data]
+gp_control_plane_web = ["openapi.json", "static/index.html", "static/assets/*"]
