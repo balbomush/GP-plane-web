@@ -60,6 +60,7 @@ if [ -e "$root" ]; then
   [ -f "$root/.gp-web-owned" ] && [ ! -L "$root/.gp-web-owned" ] &&
     [ "$(cat "$root/.gp-web-owned")" = 'GP Plane Web' ] || fail 'foreign install directory; nothing stopped'
 fi
+python3 "$(dirname "$(readlink -f "$0")")/check-web-service.py" --unit-path "$unit" --install-root "$root" --install-user "$INSTALL_USER"
 if [ "$OP" = remove ]; then
   # Removal requires ownership proof even when a prior partial install has no root.
   [ -e "$root/.gp-web-owned" ] || { [ ! -e "$unit" ] && [ ! -e "$config" ]; } || fail 'incomplete ownership; nothing stopped'
@@ -76,6 +77,20 @@ printf '%s' "$SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail 'exact wheel sha256 is
 prepare=$(mktemp -d /tmp/gp-web-prepare.XXXXXX)
 trap 'rm -rf --one-file-system -- "$prepare"' EXIT
 chmod 0755 "$prepare"
+# Own a stable offline input set before any removal, including nested source inputs.
+install -d -m 0755 "$prepare/wheels"
+python3 - "$WHEEL" "$WHEELHOUSE" "$prepare/wheels" "$SHA256" <<'PY'
+import hashlib,shutil,sys
+from pathlib import Path
+wheel,house,dest,expected=sys.argv[1:]; source=Path(wheel).resolve(strict=True); dest=Path(dest)
+for p in Path(house).resolve(strict=True).glob('*.whl'):
+    if p.is_symlink() or not p.is_file(): raise ValueError('unsafe dependency wheel')
+    shutil.copyfile(p,dest/p.name)
+shutil.copyfile(source,dest/source.name)
+assert hashlib.sha256((dest/source.name).read_bytes()).hexdigest()==expected, 'staged Web wheel checksum mismatch'
+PY
+WHEEL="$prepare/wheels/$(basename "$WHEEL")"
+WHEELHOUSE="$prepare/wheels"
 install -d -m 0700 -o "$INSTALL_USER" -g "$group" "$prepare/runtime"
 runuser -u "$INSTALL_USER" -- python3 -m venv "$prepare/runtime/venv"
 runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" "$WHEEL"
