@@ -26,6 +26,7 @@
   <fieldset disabled={app.busy||app.runStarting}>
     <legend>Параметры запуска</legend>
     <label>Режим <select aria-label="Режим" bind:value={app.preferences.run_mode}><option value="standard">Standard</option><option value="multi">Multi</option></select></label>
+    <p class="helper-text">{app.preferences.run_mode==='multi'?'Одна стратегия запускается один раз, затем все выбранные домены проверяются параллельными проверочными запросами.':'Домены проверяются обычным порядком штатного подбора.'}</p>
     <label>Список доменов <select aria-label="Список доменов" bind:value={app.preferences.domain_preset} onchange={()=>lists.useFinder(app.preferences.domain_preset)}><option value="custom">Свои домены</option>{#each lists.entries('finder',true) as item}<option value={item.key}>{item.label}</option>{/each}</select></label>
     <label>Домены <textarea id="finder-domains" rows="8" bind:value={app.domainText} oninput={()=>{app.preferences.domain_preset='custom';}}></textarea></label>
     <p>Доменов: {domains(app.domainText).length}</p>
@@ -43,5 +44,5 @@
     <div class="run-launch-summary-grid l-grid">{#each summary as [label,value]}<div class="run-launch-summary-item l-stack"><div class="run-launch-summary-label">{label}</div><div class="run-launch-summary-value">{value}</div></div>{/each}</div>
   </section>
   <div class="button-row"><button onclick={()=>app.start()} disabled={!app.systemReady||app.busy||app.runStarting}>Start</button><button class="secondary" onclick={()=>app.stop()} disabled={!app.busy||app.stopBusy}>Stop</button></div>
-  <p class="action-consequence">Найденные стратегии сохранятся; остановка не удаляет результаты.</p>
+  <p class="action-consequence">Запускается выбранный режим с текущими доменами, глубиной проверки и параметрами. Найденные стратегии сохранятся; остановка не удаляет результаты.</p>
 </section>
