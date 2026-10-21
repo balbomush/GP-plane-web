@@ -18,8 +18,10 @@
 </script>
 <section aria-label="Настройки" class="l-stack"><h2>Настройки</h2>
   <fieldset disabled={!app.canMutate} oninput={()=>dirty=true}><legend>Настройки Core {dirty?'· есть несохранённые изменения':''}</legend>
-    <label class="checkbox-row"><input type="checkbox" bind:checked={draft.enable_ipv6}> IPv6</label><label class="checkbox-row"><input type="checkbox" bind:checked={draft.debug_stdout}> Debug-log</label>
-    <p class="muted">Debug-log сохраняет подробный вывод для диагностики. Обычные progress и log доступны без него.</p>
+    <label class="checkbox-row"><input type="checkbox" bind:checked={draft.enable_ipv6}> IPv6</label>
+    <div class="debug-log-toggle-block"><label class="checkbox-row"><input type="checkbox" bind:checked={draft.debug_stdout}> Debug-log</label>
+      <p class="muted debug-log-note">Debug-log сохраняет подробный вывод для диагностики. Обычные progress и log доступны без него.</p>
+    </div>
     <label>Максимум параллельных запросов <input type="number" min="1" bind:value={draft.curl_parallelism_max}></label>
     <button onclick={save} disabled={saving}>Сохранить настройки</button>
   </fieldset>

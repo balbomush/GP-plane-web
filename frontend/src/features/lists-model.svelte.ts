@@ -95,11 +95,19 @@ export class ListsModel {
     },e=>{this.app.notice=e.message;this.busy=false;});
   }
   async loadCatalog(update=false) {
+    if(this.sourceBusy||!this.app.canMutate)return;
     this.categoryBusy=true;
     await this.life.run('catalog',async signal=>{
-      if(update)await this.app.api.postJson(E.service.v2flyUpdateLocalStorage,{},{signal});
-      return this.app.api.getJson(url(E.core.v2flyCategories,{limit:5000}),{signal});
-    },data=>{this.catalog=data.categories||[];this.source=data.storage?.source||'';this.categoryBusy=false;},e=>{this.app.notice=e.message;this.categoryBusy=false;});
+      const updated=update?await this.app.api.postJson(E.service.v2flyUpdateLocalStorage,{},{signal}):null;
+      const data=await this.app.api.getJson(url(E.core.v2flyCategories,{limit:5000}),{signal});
+      return {data,updated};
+    },({data,updated})=>{
+      this.catalog=data.categories||[];this.source=data.storage?.source||'';this.categoryBusy=false;
+      if(updated){
+        const warning=updated.result?.revision_warning;
+        this.app.notice=warning?`Каталог v2fly готов: ${updated.storage?.group_count??this.catalog.length} групп, но ревизия источника не подтверждена: ${String(warning)}`:'Каталог v2fly обновлен';
+      }
+    },e=>{this.app.notice=e.message;this.categoryBusy=false;});
   }
   async previewCategories() {
     const categories=[...this.categories],query=this.categoryQuery;this.previewBusy=true;

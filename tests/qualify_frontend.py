@@ -18,7 +18,8 @@ from process_guard import OwnedProcess
 
 SUITES=('frontend-ui.cjs','frontend-bootstrap.cjs','frontend-lifetime.cjs',
         'frontend-operations.cjs','frontend-paging.cjs','frontend-security.cjs',
-        'frontend-review-regressions.cjs','frontend-strategy-lists.cjs')
+        'frontend-review-regressions.cjs','frontend-strategy-lists.cjs',
+        'frontend-parity-regressions.cjs')
 
 
 def cleanup_owned(owner, port):

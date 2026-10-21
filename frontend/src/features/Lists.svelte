@@ -24,7 +24,7 @@
     <label>Импорт файла <input type="file" accept=".txt,text/plain" onchange={importFile}></label>
   </fieldset>
   <details><summary>V2Fly</summary>
-    <div class="button-row"><button onclick={()=>model.loadCatalog()} disabled={model.sourceBusy}>Проверить локальный каталог</button><button onclick={()=>model.loadCatalog(true)} disabled={model.sourceBusy||!model.app.canMutate}>Обновить каталог</button></div><p>{model.source}</p>
+    <div class="button-row"><button onclick={()=>model.loadCatalog()} disabled={model.sourceBusy||!model.app.canMutate}>Проверить локальный каталог</button><button onclick={()=>model.loadCatalog(true)} disabled={model.sourceBusy||!model.app.canMutate}>Обновить каталог</button></div><p>{model.source}</p>
     <label>Поиск категории <input bind:value={model.categoryQuery} oninput={()=>model.choiceChanged()}></label>
     <label>Категории <select aria-label="Категории" multiple size="8" bind:value={model.categories} onchange={()=>model.choiceChanged()}>{#each model.catalog.filter(item=>String(typeof item==='string'?item:item.name||item.id||item.category).includes(model.categoryQuery)) as item}{@const name=typeof item==='string'?item:item.name||item.id||item.category}<option value={name}>{name}</option>{/each}</select></label>
     <button onclick={()=>model.previewCategories()} disabled={model.sourceBusy||!model.categories.length}>Предпросмотр</button><p>Доменов в предпросмотре: {model.preview.length}</p><pre>{model.preview.slice(0,100).join('\n')}</pre>
