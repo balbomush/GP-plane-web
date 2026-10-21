@@ -35,7 +35,7 @@
       {#if list.rows.length>200}<button onclick={()=>model.toggleList(list.key)}>{list.expanded?'Свернуть до 200':`Показать все ${list.rows.length}`}</button>{/if}
       {#if model.more}<button onclick={()=>model.moreForList(list)} disabled={model.busy}>{model.mode==='domain'&&!model.domain&&list.domain?`Открыть домен ${list.domain}`:'Ещё стратегии этого набора'}</button>{/if}
       <details><summary>Семейства стратегий</summary>{#each model.selection.strategyFamilyGroups(list.visible) as group}<details><summary>{group.family} · {group.rows.length} · {group.best.protocol}</summary><p>{group.familyReason}</p><pre>{group.rows.map(row=>String(row.args||'')).join('\n')}</pre></details>{/each}</details>
-      <Results candidates={list.visible} loading={model.busy} error={model.error} onCopy={text=>navigator.clipboard.writeText(text)}/>
+      <Results candidates={list.visible} onCopy={text=>navigator.clipboard.writeText(text)}/>
     </section>
   {/each}
   {#if model.more}<button onclick={()=>model.load(true)} disabled={model.busy}>Загрузить ещё</button>{/if}

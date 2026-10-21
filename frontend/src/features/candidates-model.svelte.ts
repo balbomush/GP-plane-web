@@ -61,7 +61,7 @@ export class CandidatesModel {
   get strategyLists(){
     const lists=new Map<string,{key:string;domain:string;protocol:string;rows:any[]}>();
     for(const row of this.filtered){
-      const names=this.mode==='common'?['']:this.selection.candidateAllDomains(row);
+      const names=this.mode==='common'?['']:this.domain?[this.domain]:this.selection.candidateAllDomains(row);
       for(const domain of names.length?names:['']){
         const key=JSON.stringify([this.mode,this.mode==='common'?this.selectedCommon:domain,row.protocol]);
         if(!lists.has(key))lists.set(key,{key,domain,protocol:row.protocol,rows:[]});

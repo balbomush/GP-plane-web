@@ -12,7 +12,7 @@ const records=[];
   await page.route('**/api/web/strategy-candidates-page?*',r=>{
    const q=Object.fromEntries(new URL(r.request().url()).searchParams);queries.push(q);
    if(fail){fail=false;return r.fulfill({status:503,json:{error:'held-page-failure'}});}
-   const all=q.domain?rows.filter(row=>row.seen[0].domain===q.domain):rows,offset=Number(q.offset);
+   const all=q.domain?rows.filter(row=>row.seen[0].domain===q.domain).map(row=>({...row,seen:domains.map(domain=>({domain}))})):rows,offset=Number(q.offset);
    return r.fulfill({json:{candidates:empty?[]:all.slice(offset,offset+50),total:all.length,has_more:!empty&&offset+50<all.length,version:{v:1}}});
   });
   await tab('Кандидаты');await page.getByText(/Загружено 50 из 880/).waitFor();
@@ -24,7 +24,7 @@ const records=[];
   await a.getByRole('button',{name:'Свернуть до 200',exact:true}).click();assert.equal(await a.locator('[data-result]').count(),200);
   await a.getByRole('button',{name:'Скопировать все',exact:true}).click();assert.equal((await page.evaluate(()=>navigator.clipboard.readText())).split('\n').length,200);
   fail=true;await button('Загрузить ещё').click();await page.getByRole('alert').first().waitFor();assert((await page.getByText(/Загружено 850 из 880/).textContent()).includes('850'));
-  empty=true;await button('Загрузить ещё').click();await a.locator('[data-result]').first().waitFor();assert.equal(await a.locator('[data-result]').count(),200);assert.equal(await button('Загрузить ещё').count(),0);empty=false;
+  empty=true;await button('Загрузить ещё').click();await button('Загрузить ещё').waitFor({state:'detached'});assert.equal(await a.locator('[data-result]').count(),200);assert.equal(await button('Загрузить ещё').count(),0);empty=false;
   // Refresh restores the global first page. A list button must explicitly
   // select its own domain, never consume a foreign-domain global page.
   await button('Обновить кандидатов').click();await page.getByText(/Загружено 50 из 880/).waitFor();
