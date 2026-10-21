@@ -1,2 +1,12 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GP Plane Web</title></head><body><div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GP Plane Web</title></head><body>
+<p id="asset-error" role="alert" hidden>Ресурсы Web недоступны или обновлены. <a href="/">Перезагрузить страницу</a>.</p>
+<noscript>Для панели GP Plane Web требуется JavaScript.</noscript>
+<script>
+window.addEventListener('error',function(event){
+  if(event.target instanceof HTMLScriptElement || event.target instanceof HTMLLinkElement){
+    var notice=document.getElementById('asset-error');if(notice)notice.hidden=false;
+  }
+},true);
+</script>
+<div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>

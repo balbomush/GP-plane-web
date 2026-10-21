@@ -3,3 +3,11 @@ recursive-include src/gp_control_plane_web/static *
 include src/gp_control_plane_web/openapi.json
 recursive-include scripts *.sh *.py
 include requirements-runtime.lock
+include SOURCE_PROVENANCE.md
+include frontend/package.json frontend/package-lock.json frontend/index.html frontend/tsconfig.json frontend/vite.config.js frontend/svelte.config.js
+recursive-include frontend/src *.svelte *.ts *.js *.css
+include frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz
+include scripts/frontend-manifest.mjs
+recursive-include tests *.py *.cjs *.json *.md
+
+include frontend/*.test.mjs

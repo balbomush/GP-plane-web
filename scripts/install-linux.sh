@@ -99,13 +99,14 @@ import importlib.util, json, socket, sys, urllib.request
 from urllib.parse import urlsplit
 from importlib.resources import files
 from gp_control_plane_web.cli import create_web_runtime
+from gp_control_plane_web.compatibility import validate_core_contract
 url,host,port=sys.argv[1:]; parsed=urlsplit(url)
 assert parsed.scheme=="http" and parsed.hostname in {"127.0.0.1","localhost"} and parsed.path in {"","/"}, "Core must be local"
 assert importlib.util.find_spec("gp_control_plane") is None, "Web must not install Core"
 assert files("gp_control_plane_web").joinpath("static/index.html").is_file(), "compiled assets missing"
 with urllib.request.urlopen(url.rstrip("/")+"/openapi.json",timeout=5) as r:
     contract=json.load(r)
-assert contract["info"]["version"].startswith("0.4."), "unsupported Core contract"
+validate_core_contract(contract)
 runtime=create_web_runtime(host,int(port),core_url=url)
 runtime.stop()
 ' "$CORE_URL" "$HOST" "$PORT"
@@ -114,6 +115,7 @@ python3 - "$PORT" "$root" <<'PY'
 import pathlib,re,socket,subprocess,sys
 port,root=sys.argv[1:]
 with socket.socket() as s:
+    s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
     try: s.bind(('0.0.0.0',int(port)))
     except OSError:
         pid=subprocess.check_output(['systemctl','show','--property=MainPID','--value','gp-web.service'],text=True).strip()

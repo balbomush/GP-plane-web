@@ -6,4 +6,7 @@ dist/
 build/
 vendor/
 *.tgz
+!frontend/vendor/
+frontend/vendor/*
+!frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz
 src/gp_control_plane_web/static/

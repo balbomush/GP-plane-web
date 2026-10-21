@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "core_api_versions": [
+    "0.4.4"
+  ],
+  "required_operations": {
+    "/api/auth/login": [
+      "post"
+    ],
+    "/api/auth/change-password": [
+      "post"
+    ],
+    "/api/core/strategy-discovery/start-run": [
+      "post"
+    ],
+    "/api/core/strategy-discovery/stop-current-run": [
+      "post"
+    ],
+    "/api/core/runs/latest-log": [
+      "get"
+    ],
+    "/api/core/run-settings": [
+      "get"
+    ]
+  },
+  "view_contract": "v0.4.4 web DTOs; S2A internal routes are intentionally absent from public OpenAPI"
+}
