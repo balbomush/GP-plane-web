@@ -11,7 +11,7 @@ for(const scenario of ['backups','backup-size','password','v2fly-error','busy-re
     window.fetch=(url,init)=>{
       const path=String(url);const json=data=>Promise.resolve(new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}}));
       if(path.includes('/events/stream'))return Promise.resolve(new Response(new ReadableStream({start(controller){window.__emit=(event,data)=>controller.enqueue(new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));init.signal.addEventListener('abort',()=>controller.close(),{once:true});}})));
-      if(path.endsWith('/api/web/status'))return json({version:'0.4.4',current_run:window.__busy?{run_id:'busy-owned',status:'running'}:null,zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true}});
+      if(path.endsWith('/api/web/status'))return json({version:'0.4.4',state:{current_run_id:window.__busy?'busy-owned':null,current_run_status:window.__busy?'running':null},zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true}});
       if(path.includes('/history-page'))return json({runs:[{run_id:'busy-owned',status:window.__busy?'running':'stopped',timestamp:'2026-10-20'}],has_more:false,total:1});
       return original(url,init);
     };
@@ -61,7 +61,7 @@ for(const scenario of ['backups','backup-size','password','v2fly-error','busy-re
       await held.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'storage_unavailable',message:'Каталог временно недоступен'}})});await page.getByText('Каталог временно недоступен',{exact:true}).waitFor();assert(await button('Обновить каталог').isEnabled());assert.equal(await page.getByLabel('Категории',{exact:true}).locator('option').count(),1);
     }else if(scenario==='busy-release'){
       await tab('Настройки');await settle(page);assert.equal(ui.requests.filter(r=>r.path.endsWith('/releases/available')).length,0);assert(await button('Создать бекап').isDisabled());assert(await button('Сохранить настройки').isDisabled());
-      await page.evaluate(()=>{window.__busy=false;window.__emit('runs',{});window.__emit('status',{version:'0.4.4',current_run:null,zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true}});});
+      await page.evaluate(()=>{window.__busy=false;window.__emit('runs',{});window.__emit('status',{version:'0.4.4',state:{current_run_id:null,current_run_status:null},zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true}});});
       await page.getByText('Версии и обновления',{exact:true}).click();await page.getByRole('link',{name:'Открыть 0.4.4',exact:true}).waitFor();assert.equal(ui.requests.filter(r=>r.path.endsWith('/releases/available')).length,1);assert(await button('Создать бекап').isEnabled());
     }
     assert.deepEqual(ui.errors,[]);records.push({scenario,pass:true});console.log(scenario+' PASS');

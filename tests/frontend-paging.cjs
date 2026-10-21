@@ -10,7 +10,7 @@ async function scenario(name,run){if(only&&only!==name)return;const ui=await cre
   await page.route('**/api/web/strategy-candidates-page?*',route=>{
    const query=Object.fromEntries(new URL(route.request().url()).searchParams),offset=Number(query.offset);seen.push(query);
    assert.equal(query.limit,'50');
-   const candidates=Array.from({length:offset?5:50},(_,index)=>({...golden.candidates[0],id:`row${offset+index}`,args:`--unique=${offset+index}`,family:offset?'other':'fake'}));
+   const candidates=Array.from({length:offset?5:50},(_,index)=>({...golden.candidates[0],seen:[{domain:'domain0.example'}],id:`row${offset+index}`,args:`--unique=${offset+index}`,family:offset?'other':'fake'}));
    return route.fulfill({contentType:'application/json',body:JSON.stringify({candidates,total:55,offset,has_more:!offset,version:{v:1}})});
   });
   await tab('Кандидаты');await page.locator('[data-result]').first().waitFor();assert.equal(await page.locator('[data-result]').count(),50);

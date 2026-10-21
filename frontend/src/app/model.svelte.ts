@@ -50,9 +50,15 @@ export class AppModel {
     finally{clearTimeout(timeout!);}
   }
   applyBootstrap([status,history,log,presets,settings]) {
-    this.run.mergeHistory(history,true,latestById); this.run.mergeStatus(status);this.mergeLog(log,false);
+    this.run.mergeHistory(history,true,latestById); this.mergeStatus(status);this.mergeLog(log,false);
     this.presets=presets;this.settings=settings.settings||settings; this.applyPreferences(status.run_preferences||{});
     this.scheduleStatusRetry();
+  }
+  mergeStatus(status:any) {
+    // Web status and SSE share the Core-owned state DTO. Keep its wire shape
+    // intact and adapt identity only at the RunState boundary.
+    const state=status?.state, id=state?.current_run_id, phase=state?.current_run_status;
+    return this.run.mergeStatus({...status,current_run:id?{run_id:String(id),status:phase||'running',name:state.current_run_name}:null});
   }
   applyPreferences(saved: any) {
     this.preferences={...initialPreferences(),enable_ipv6:Boolean(this.settings.enable_ipv6),
@@ -81,7 +87,7 @@ export class AppModel {
     this.refreshBusy=true;
     await this.life.run('refresh',signal=>Promise.all([this.api.getJson(E.web.status,{signal}),
       this.api.getJson(url(E.web.runHistoryPage,{limit:50,offset:0}),{signal})]),([status,history])=>{
-      this.run.mergeHistory(history,true,latestById);this.run.mergeStatus(status);this.refreshBusy=false;
+      this.run.mergeHistory(history,true,latestById);this.mergeStatus(status);this.refreshBusy=false;
       this.error='';this.scheduleStatusRetry();if(!this.historical)this.refreshLog();
     },e=>{this.error=e.message;this.refreshBusy=false;});
   }
@@ -139,7 +145,7 @@ export class AppModel {
   }
   event(event: string,raw: string) {
     let data:any;try{data=JSON.parse(raw||'{}');}catch{return;}
-    if(event==='status'){this.run.mergeStatus(data);if(data.settings)this.settings=runSettings(data.settings);this.scheduleStatusRetry();}
+    if(event==='status'){this.mergeStatus(data);if(data.settings)this.settings=runSettings(data.settings);this.scheduleStatusRetry();}
     if(event==='runs')this.history();
     if(event==='log' && !this.historical && (this.busy || this.tab==='terminal'))this.refreshLog();
     if(event==='presets')this.refreshPresets();

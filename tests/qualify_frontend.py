@@ -17,7 +17,34 @@ import zipfile
 from process_guard import OwnedProcess
 
 SUITES=('frontend-ui.cjs','frontend-bootstrap.cjs','frontend-lifetime.cjs',
-        'frontend-operations.cjs','frontend-paging.cjs','frontend-security.cjs')
+        'frontend-operations.cjs','frontend-paging.cjs','frontend-security.cjs',
+        'frontend-review-regressions.cjs','frontend-strategy-lists.cjs')
+
+
+def cleanup_owned(owner, port):
+    if owner is not None:owner.close()
+    deadline=time.monotonic()+2
+    while True:
+        with socket.socket() as probe:
+            probe.settimeout(.1)
+            if probe.connect_ex(('127.0.0.1',port))!=0:return
+        if time.monotonic()>=deadline:raise AssertionError('owned listener survived teardown')
+        time.sleep(.02)
+
+
+def finish_report(report, owner, port, output, primary=None):
+    """Cleanup is a gate. Keep the original scenario failure when both fail."""
+    try:
+        cleanup_owned(owner,port)
+        report['cleanup']='PASS'
+        report['status']='PASS' if primary is None else 'FAIL'
+    except BaseException as error:
+        report.update(status='FAIL',cleanup='FAIL',cleanup_error=str(error))
+        if primary is not None:primary.add_note('cleanup failed: '+str(error))
+        else:raise
+    finally:
+        if primary is not None:report['error']=str(primary)
+        (output/'result.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 
 
 def main():
@@ -58,6 +85,7 @@ def main():
             'node_sha256':hashlib.sha256(node.read_bytes()).hexdigest(),
             'asset_manifest_sha256':hashlib.sha256((module.parent/'static/asset-manifest.json').read_bytes()).hexdigest(),
             'suites':rows,'status':'FAIL','cleanup':'PENDING'}
+    primary=None
     try:
         with (output/'web.log').open('wb') as server_log:
             owner=OwnedProcess([sys.executable,'-I','-m','gp_control_plane_web.cli','--host','127.0.0.1','--port',str(port),'--core-url','http://127.0.0.1:18979'],cwd=output,env=env,stdout=server_log,stderr=server_log)
@@ -76,14 +104,11 @@ def main():
                 rows.append({'suite':suite,'exit':run.returncode,'result':str(destination),
                              'controller_sha256':hashlib.sha256(Path(__file__).with_name(suite).read_bytes()).hexdigest()})
                 assert run.returncode==0,'browser suite failed: '+suite
-            report['status']='PASS'
+    except BaseException as error:
+        primary=error
+        raise
     finally:
-        try:
-            if owner is not None:owner.close()
-            with socket.socket() as probe:
-                probe.settimeout(.2);assert probe.connect_ex(('127.0.0.1',port))!=0,'owned listener survived'
-            report['cleanup']='PASS'
-        finally:(output/'result.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+        finish_report(report,owner,port,output,primary)
     return 0
 
 

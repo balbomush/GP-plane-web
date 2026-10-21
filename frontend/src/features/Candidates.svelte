@@ -7,7 +7,6 @@
   let {model,lists}:{model:CandidatesModel;lists:any}=$props();
   let preset=$state(''),presetName=$state('');
   onMount(()=>model.mount());
-  async function applyPreset(){await model.life.run('common-preset',signal=>lists.read(preset,'common',signal),values=>{model.common=values.join('\n');model.load();},e=>{model.error=e.message;});}
 </script>
 <section aria-label="Кандидаты" class="l-stack">
   <h2>Кандидаты</h2>
@@ -16,8 +15,8 @@
     <label>Домен <select aria-label="Домен" bind:value={model.domain} onchange={()=>model.load()}><option value="">Все загруженные домены</option>{#each model.index as item}{@const name=typeof item==='string'?item:item.domain}<option value={name}>{name} ({item.strategy_count??item.count??'—'})</option>{/each}</select></label>
     <p>Доменов в индексе {model.index.length} из {model.indexTotal}</p>{#if model.indexMore}<button onclick={()=>model.loadIndex(true)} disabled={model.indexBusy}>Ещё домены</button>{/if}
   {:else}
-    <label>Список <select aria-label="Список" bind:value={preset} onchange={()=>{if(preset==='tested'){model.common=model.tested.join('\n');model.load();}else applyPreset();}}><option value="">Свои домены</option>{#if model.tested.length}<option value="tested">Все протестированные</option>{/if}{#each lists.entries('common',true) as entry}<option value={entry.key}>{entry.label}</option>{/each}</select></label>
-    <label>Общие домены <textarea bind:value={model.common} rows="5"></textarea></label><p>Выберите минимум два протестированных домена.</p>
+    <label>Список <select aria-label="Список" bind:value={preset} onchange={()=>model.applyPreset(preset,lists)}><option value="">Свои домены</option>{#if model.tested.length}<option value="tested">Все протестированные</option>{/if}{#each lists.entries('common',true) as entry}<option value={entry.key}>{entry.label}</option>{/each}</select></label>
+    <label>Общие домены <textarea bind:value={model.common} oninput={()=>{preset='';model.editCommon();}} rows="5"></textarea></label><p>Выберите минимум два протестированных домена.</p>
     <label>Добавить протестированный домен <input list="tested-domains" bind:value={model.addition}></label><datalist id="tested-domains">{#each model.tested as domain}<option value={domain}></option>{/each}</datalist><button onclick={()=>model.addDomain()}>Добавить домен</button>
     <div class="l-cluster">{#each domains(model.common) as domain}<button onclick={()=>model.removeDomain(domain)} aria-label={`Убрать ${domain}`}>{domain} ×</button>{/each}</div>
     <p>Выбрано протестированных: {model.selectedCommon.length}. Прочие введённые домены не входят в запрос пересечения.</p>
@@ -28,8 +27,17 @@
   <label>Семейство <select aria-label="Семейство" bind:value={model.family}><option value="">Все</option>{#each model.families as family}<option>{family}</option>{/each}</select></label>
   <button onclick={()=>model.load()} disabled={model.busy}>Обновить кандидатов</button>
   <p>Загружено {model.rows.length} из {model.total}; показано {model.filtered.length}. Копирование относится к показанным загруженным результатам.</p>
-  <details><summary>Семейства стратегий</summary>{#each model.selection.strategyFamilyGroups(model.filtered) as group}<details><summary>{group.family} · {group.rows.length} · {group.best.protocol}</summary><p>{group.familyReason}</p><pre>{group.rows.map(row=>String(row.args||'')).join('\n')}</pre></details>{/each}</details>
-  <Results candidates={model.filtered} loading={model.busy} error={model.error} onCopy={text=>navigator.clipboard.writeText(text)}/>
+  {#if model.busy||model.error||!model.filtered.length}<Results candidates={[]} loading={model.busy} error={model.error} onCopy={text=>navigator.clipboard.writeText(text)}/>{/if}
+  {#each model.strategyLists as list (list.key)}
+    <section data-strategy-list={list.key} aria-label={`Стратегии ${list.domain||'общего набора'} ${list.protocol}`}>
+      <h3>{list.domain||'Общий набор'} · {list.protocol}</h3>
+      <p>Показано {list.visible.length} из {list.rows.length} уникальных загруженных стратегий. Копирование относится к показанным стратегиям этого списка.</p>
+      {#if list.rows.length>200}<button onclick={()=>model.toggleList(list.key)}>{list.expanded?'Свернуть до 200':`Показать все ${list.rows.length}`}</button>{/if}
+      {#if model.more}<button onclick={()=>model.moreForList(list)} disabled={model.busy}>{model.mode==='domain'&&!model.domain&&list.domain?`Открыть домен ${list.domain}`:'Ещё стратегии этого набора'}</button>{/if}
+      <details><summary>Семейства стратегий</summary>{#each model.selection.strategyFamilyGroups(list.visible) as group}<details><summary>{group.family} · {group.rows.length} · {group.best.protocol}</summary><p>{group.familyReason}</p><pre>{group.rows.map(row=>String(row.args||'')).join('\n')}</pre></details>{/each}</details>
+      <Results candidates={list.visible} loading={model.busy} error={model.error} onCopy={text=>navigator.clipboard.writeText(text)}/>
+    </section>
+  {/each}
   {#if model.more}<button onclick={()=>model.load(true)} disabled={model.busy}>Загрузить ещё</button>{/if}
   {#if model.mode==='common'}<details><summary>Итог по загруженным стратегиям</summary>
     <p>Обязательные и желательные домены берутся из системных списков. Изменить их можно на вкладке «Списки».</p>

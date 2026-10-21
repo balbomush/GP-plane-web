@@ -26,7 +26,7 @@ async function createUi({before,login=true}={}){
     let data={};
     if(u.pathname.endsWith('/events/stream'))return route.abort();
     if(u.pathname.endsWith('/auth/login'))data={access_token:'synthetic-test-token'};
-    else if(u.pathname==='/api/web/status'){if(failBootstrap)return route.fulfill({status:503,body:'fixture Core unavailable'});data={version:'0.4.4',zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true},current_run:current,run_preferences:{domains:['example.com'],enable_tls12:true,include_quic:false}};}
+    else if(u.pathname==='/api/web/status'){if(failBootstrap)return route.fulfill({status:503,body:'fixture Core unavailable'});data={version:'0.4.4',zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true},state:{current_run_id:current?.run_id||null,current_run_status:current?.status||null},run_preferences:{domains:['example.com'],enable_tls12:true,include_quic:false}};}
     else if(u.pathname.endsWith('/history-page'))data=history();
     else if(u.pathname.endsWith('/latest-log'))data={run_id:u.searchParams.get('run_id')||'new-run',stdout_log:'stdout.log',stdout_tail:'Live stdout α',stderr_tail:'Live stderr',status:runStatus,progress:{attempted:3,attempt_total:10,percent:30}};
     else if(u.pathname==='/api/core/run-settings')data=settings;

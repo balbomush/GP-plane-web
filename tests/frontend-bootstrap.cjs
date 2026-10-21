@@ -55,7 +55,7 @@ async function scenario(name,run){if(only&&only!==name)return;const ui=await cre
  });
  await scenario('unknown-status-neutral-retries',async({page,signIn,button})=>{
   let attempts=0;
-  await page.route('**/api/web/status',route=>++attempts<3?route.fulfill({contentType:'application/json',body:'{"current_run":null}'}):route.fallback());
+  await page.route('**/api/web/status',route=>++attempts<3?route.fulfill({contentType:'application/json',body:'{"state":{"current_run_id":null,"current_run_status":null}}'}):route.fallback());
   await signIn();await page.getByRole('tablist').waitFor();await page.getByText('Состояние не получено',{exact:true}).waitFor();
   assert(await button('Start').isDisabled());
   await page.getByText('Готова',{exact:true}).waitFor();assert(attempts>=3);

@@ -44,7 +44,7 @@ export class ListsModel {
     throw new Error('Список превышает предел загрузки; сохранение усечённых данных запрещено');
   }
   async load() {
-    const key=this.selection,scope=this.scope;if(!key)return;
+    const key=this.selection,scope=this.scope;if(!key){this.newList();return;}
     const revision=++this.revision;this.loading=true;
     await this.life.run('editor',signal=>this.read(key,scope,signal),values=>{this.loading=false;if(revision!==this.revision)return;this.name=key.slice(key.indexOf(':')+1);this.original=values;this.text=values.join('\n');},e=>{this.app.notice=e.message;this.loading=false;});
   }

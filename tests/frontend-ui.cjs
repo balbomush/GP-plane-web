@@ -23,7 +23,7 @@ let browser,server;
     let data={};
     if(u.pathname.endsWith('/events/stream'))return route.abort();
     if(u.pathname.endsWith('/auth/login'))data={access_token:'synthetic-test-token'};
-    else if(u.pathname==='/api/web/status'){if(failBootstrap)return route.fulfill({status:503,body:'fixture Core unavailable'});data={version:'0.4.4',zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true},current_run:current,run_preferences:{domains:['example.com'],enable_tls12:true,include_quic:false}};}
+    else if(u.pathname==='/api/web/status'){if(failBootstrap)return route.fulfill({status:503,body:'fixture Core unavailable'});data={version:'0.4.4',zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true},state:{current_run_id:current?.run_id||null,current_run_status:current?.status||null},run_preferences:{domains:['example.com'],enable_tls12:true,include_quic:false}};}
     else if(u.pathname.endsWith('/history-page'))data=history();
     else if(u.pathname.endsWith('/latest-log'))data={run_id:u.searchParams.get('run_id')||'new-run',stdout_log:'stdout.log',stdout_tail:'Live stdout α',stderr_tail:'Live stderr',status:runStatus,progress:{attempted:3,attempt_total:10,percent:30}};
     else if(u.pathname==='/api/core/run-settings')data=settings;
@@ -59,7 +59,7 @@ let browser,server;
   checks.push('live stdout/stderr/progress and Stop terminal-history convergence');
   await tab('История');await page.getByRole('heading',{name:'history-1',exact:true}).waitFor();await page.getByRole('article').filter({has:page.getByRole('heading',{name:'history-1',exact:true})}).getByRole('button',{name:'Повторить параметры'}).click();assert.equal(await page.getByLabel('Повторы',{exact:true}).inputValue(),'3');
   checks.push('history repeat uses discovery_options and does not start automatically');
-  await tab('Кандидаты');await page.locator('[data-result]').first().waitFor();assert.equal(await page.locator('[data-result]').count(),golden.candidates.length);assert.equal(await page.locator('article img').count(),0);
+  await tab('Кандидаты');await page.locator('[data-result]').first().waitFor();assert.equal(await page.locator('[data-result]').count(),golden.candidates.reduce((sum,row)=>sum+new Set((row.seen||[]).map(item=>item.domain)).size,0));assert.equal(await page.locator('article img').count(),0);
   await page.locator('[data-result]').first().getByRole('button').click();await page.getByText('Скопировано',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),golden.candidates[0].args.trim());
   checks.push('immutable gp-ui populated results, exact Unicode/copy and XSS escaping');
   candidatePage={candidates:'bad',total:1,has_more:false};await button('Обновить кандидатов').click();await page.getByText('Неверный ответ Core',{exact:true}).waitFor();assert.equal(await page.locator('[data-result]').count(),0);candidatePage=golden;
@@ -158,7 +158,7 @@ let browser,server;
   await page.waitForFunction(()=>window.__sseController,undefined,{timeout:15000});
   await tab('Настройки');await page.getByText('Версии и обновления',{exact:true}).click();
   await page.getByLabel('Максимум параллельных запросов',{exact:true}).fill('17');
-  const emitSettings=async (value,version)=>{settings={...settings,curl_parallelism_max:value};return page.evaluate(({value,version})=>{window.__emit('settings',{version:`settings-${value}`});window.__emit('status',{version,current_run:null,zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true}});},{value,version});};
+  const emitSettings=async (value,version)=>{settings={...settings,curl_parallelism_max:value};return page.evaluate(({value,version})=>{window.__emit('settings',{version:`settings-${value}`});window.__emit('status',{version,state:{current_run_id:null,current_run_status:null},zapret2:{nfqws2_found:true,blockcheck_found:true,root_helper_ready:true}});},{value,version});};
   await emitSettings(23,'fixture-status-23');await page.getByText(/Core: fixture-status-23/).waitFor();
   assert.equal(await page.getByLabel('Максимум параллельных запросов',{exact:true}).inputValue(),'17');
   await button('Сохранить настройки').click();await page.getByText('Настройки сохранены',{exact:true}).waitFor();
