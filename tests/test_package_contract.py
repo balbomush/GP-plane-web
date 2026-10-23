@@ -14,14 +14,22 @@ class PackageContractTests(unittest.TestCase):
         declaration=compatibility.declaration()
         contract={"info":{"version":"0.4.4"},"paths":{
             path:{method:{} for method in methods} for path,methods in declaration["required_operations"].items()}}
-        compatibility.validate_core_contract(contract)
-        contract["info"]["version"]="999.0.0"
-        with self.assertRaisesRegex(ValueError,"unsupported Core API"):
-            compatibility.validate_core_contract(contract)
-        contract["info"]["version"]="0.4.4"
-        del contract["paths"]["/api/auth/change-password"]
-        with self.assertRaisesRegex(ValueError,"operation is unavailable"):
-            compatibility.validate_core_contract(contract)
+        for version in ("0.4.4", "0.4.5a1"):
+            with self.subTest(version=version):
+                contract["info"]["version"]=version
+                compatibility.validate_core_contract(contract)
+        for version in ("999.0.0", "0.4.5", "0.4.5a2", "0.4.5a1+unqualified"):
+            with self.subTest(version=version):
+                contract["info"]["version"]=version
+                with self.assertRaisesRegex(ValueError,"unsupported Core API"):
+                    compatibility.validate_core_contract(contract)
+        for version in ("0.4.4", "0.4.5a1"):
+            contract["info"]["version"]=version
+            broken=json.loads(json.dumps(contract))
+            del broken["paths"]["/api/auth/change-password"]
+            with self.subTest(missing_operation_version=version):
+                with self.assertRaisesRegex(ValueError,"operation is unavailable"):
+                    compatibility.validate_core_contract(broken)
 
     def test_missing_corrupt_or_traversing_asset_manifest_fails_closed(self):
         with tempfile.TemporaryDirectory() as raw:

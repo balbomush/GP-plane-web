@@ -4,7 +4,9 @@
 `gp-plane-web`, namespace `gp_control_plane_web`, команда `gp-web`.
 Svelte shell и экраны: подбор Standard/Multi, журнал и прогресс, история, кандидаты
 и точное копирование, списки/v2fly, настройки, пароль, релизы Core и бекапы.
-Текущий кандидат разработки — Python `0.1.0.dev1`, frontend `0.1.0-s3.1`;
+Текущий кандидат разработки — Python `0.1.0a1`, frontend `0.1.0-alpha.1`;
+это тестовый source snapshot, не опубликованный alpha-релиз и не stable.
+Совместимые Core API: только `0.4.4` и квалифицированный `0.4.5a1`;
 приёмка и публикация стабильной пары выполняются отдельно.
 
 Bottle 0.13.4 / Cheroot 11.1.2 сохранены. Web не устанавливает и не импортирует
@@ -19,10 +21,9 @@ Runtime — Python >=3.11 и compiled assets, без Node/Vite/CDN.
 Node24.19.0/npm11.17.0, tracked locks, Python build/setuptools84.0.0 и заранее
 загруженных Python wheels. Глобальное окружение обновлять не нужно.
 
-1. В `packages/gp-ui`: `npm ci`, затем `npm pack --pack-destination <artifact-dir>`.
-2. Скопируйте exact `gp-plane-gp-ui-0.1.0-s2a.1.tgz` в `frontend/vendor/`;
-   сверьте SHA256 с manifest квалифицированного пакета. Library source в build-копии
-   потребителя не требуется: `packages/` можно не передавать.
+1. Используйте уже включённый immutable `frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz`.
+2. Проверьте SHA256 `a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498`.
+   Библиотеку не пересобирайте; соседние Core/библиотечные checkout не нужны.
 3. В `frontend`: `npm ci`, `npm run check`, `npm run build`. Используется архив из lock, не symlink.
 4. В корне: `python -m build --no-isolation`. Python wheel/sdist содержат
    `static/index.html`/собранные JS/CSS и контракт OpenAPI. Frontend собирается до
@@ -53,7 +54,7 @@ Node24.19.0/npm11.17.0, tracked locks, Python build/setuptools84.0.0 и зара
 
 Лицензия MIT включена в distribution. Уведомления Bottle/Cheroot и происхождение
 GP-derived кода сохранены. Публичный репозиторий —
-https://github.com/balbomush/GP-plane-web ; эта feature-копия не опубликована.
+https://github.com/balbomush/GP-plane-web ; feature snapshot является тестовым; точные исходники закрепляются SHA передачи.
 
 ## Самостоятельные install/update/remove
 

@@ -1,6 +1,6 @@
 {
   "name": "gp-plane-web-app",
-  "version": "0.1.0-s3.1",
+  "version": "0.1.0-alpha.1",
   "private": true,
   "type": "module",
   "scripts": {
