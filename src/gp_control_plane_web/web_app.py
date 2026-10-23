@@ -205,7 +205,11 @@ def _open_and_relay(
             if permit is None:
                 return _json_response(error_payload("stream_capacity_exhausted", "Stream capacity is temporarily exhausted."), HTTPStatus.SERVICE_UNAVAILABLE)
         upstream = opener(read_request_body(environ, path))
-        result = _relay_core_response(upstream, method, stream_lifecycle, _stream_peer(environ), permit)
+        # Only SSE needs proactive peer cancellation. Finite responses and
+        # downloads retain their existing EOF/close semantics, including a
+        # client that half-closes its request side while reading a response.
+        peer = _stream_peer(environ) if kind == "sse" else None
+        result = _relay_core_response(upstream, method, stream_lifecycle, peer, permit)
         permit = None  # the file-like relay now owns release, including abort
         return result
     except ProxyRequestBodyTooLarge as error:

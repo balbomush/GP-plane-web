@@ -1,5 +1,6 @@
 """Client cancellation must not wait for an application heartbeat."""
 import errno,socket,threading,unittest
+import io
 from contextlib import contextmanager
 from unittest.mock import patch,Mock
 from gp_control_plane_web.cheroot_connection import WebStreamLifecycle
@@ -15,6 +16,18 @@ def pair():
             with server:yield client,server,peer
 
 class PeerLifetimeTests(unittest.TestCase):
+    def test_proactive_peer_watch_is_sse_only_not_finite_or_download(self):
+        from gp_control_plane_web import web_app
+        env={'REMOTE_ADDR':'127.0.0.1','REMOTE_PORT':'12345','CONTENT_LENGTH':'0','wsgi.input':io.BytesIO()}
+        verified=Mock(status=200);upstream=Mock();life=WebStreamLifecycle()
+        for path,expected in [('/api/core/status',None),('/api/core/backups/download-archive',None),('/api/web/events/stream',('127.0.0.1',12345))]:
+            admission=StreamAdmission()
+            with patch.object(web_app,'_relay_core_response',return_value=[]) as relay:
+                web_app._open_and_relay(lambda body:upstream,path,'GET',env,life,admission,lambda headers:verified,{})
+                self.assertEqual(expected,relay.call_args.args[3])
+                permit=relay.call_args.args[4]
+                if permit is not None:permit.release()
+
     def test_failed_observer_registration_closes_upstream_and_permit(self):
         from gp_control_plane_web.web_app import _CoreResponseStream
         life=WebStreamLifecycle();life._observer_error=OSError(errno.EBADF,'unknown')
