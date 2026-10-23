@@ -1,7 +1,7 @@
 """Client cancellation must not wait for an application heartbeat."""
 import errno,socket,threading,unittest
 from contextlib import contextmanager
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 from gp_control_plane_web.cheroot_connection import WebStreamLifecycle
 from gp_control_plane_web.stream_admission import StreamAdmission
 from gp_control_plane_web.http_runtime import WebHttpRuntime
@@ -15,6 +15,15 @@ def pair():
             with server:yield client,server,peer
 
 class PeerLifetimeTests(unittest.TestCase):
+    def test_failed_observer_registration_closes_upstream_and_permit(self):
+        from gp_control_plane_web.web_app import _CoreResponseStream
+        life=WebStreamLifecycle();life._observer_error=OSError(errno.EBADF,'unknown')
+        upstream=Mock();permit=Mock()
+        with self.assertRaisesRegex(RuntimeError,'observer failed'):
+            _CoreResponseStream(upstream,life,('127.0.0.1',12345),permit)
+        upstream.close.assert_called_once();permit.release.assert_called_once()
+        self.assertEqual(0,life.active_count())
+
     def test_real_eof_releases_only_own_stream_and_keeps_two_active_limit(self):
         life=WebStreamLifecycle();admission=StreamAdmission()
         with pair() as (a,sa,pa),pair() as (b,sb,pb):

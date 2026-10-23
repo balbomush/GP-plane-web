@@ -275,7 +275,14 @@ class _CoreResponseStream:
         self._stream_id: int | None = None
         if stream_lifecycle is not None:
             self._registered_abort = self.abort
-            self._stream_id = stream_lifecycle.register(peer, self._registered_abort)
+            try:
+                self._stream_id = stream_lifecycle.register(peer, self._registered_abort)
+            except BaseException as error:
+                try:
+                    self.close()
+                except BaseException as close_error:
+                    raise error from close_error
+                raise
 
     def read(self, size: int = PROXY_STREAM_CHUNK_BYTES) -> bytes:
         if self._closed:
