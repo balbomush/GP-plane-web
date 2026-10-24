@@ -18,7 +18,7 @@ class PackageContractTests(unittest.TestCase):
             with self.subTest(version=version):
                 contract["info"]["version"]=version
                 compatibility.validate_core_contract(contract)
-        for version in ("999.0.0", "0.4.5", "0.4.5a3", "0.4.5a1+unqualified"):
+        for version in ("999.0.0", "0.4.6", "0.4.5a3", "0.4.5a1+unqualified"):
             with self.subTest(version=version):
                 contract["info"]["version"]=version
                 with self.assertRaisesRegex(ValueError,"unsupported Core API"):
