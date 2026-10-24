@@ -71,6 +71,8 @@ if [ "$OP" = remove ]; then
   printf '%s\n' 'Web removed; Core and its data/helper were not changed'
   exit 0
 fi
+RUNTIME_LOCK="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/requirements-runtime.lock"
+[ -f "$RUNTIME_LOCK" ] && [ ! -L "$RUNTIME_LOCK" ] || fail 'packaged runtime lock is required; use the complete source distribution'
 [ -f "$WHEEL" ] && [ ! -L "$WHEEL" ] && [ -d "$WHEELHOUSE" ] && [ ! -L "$WHEELHOUSE" ] || fail 'prepared artifacts are required'
 printf '%s' "$SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail 'exact wheel sha256 is required'
 [ "$(sha256sum "$WHEEL" | cut -d' ' -f1)" = "$SHA256" ] || fail 'wheel checksum mismatch; nothing stopped'
@@ -91,9 +93,13 @@ assert hashlib.sha256((dest/source.name).read_bytes()).hexdigest()==expected, 's
 PY
 WHEEL="$prepare/wheels/$(basename "$WHEEL")"
 WHEELHOUSE="$prepare/wheels"
+install -m 0644 "$RUNTIME_LOCK" "$prepare/runtime.lock"
+cmp -s "$RUNTIME_LOCK" "$prepare/runtime.lock" || fail 'staged Web runtime lock mismatch; nothing stopped'
 install -d -m 0700 -o "$INSTALL_USER" -g "$group" "$prepare/runtime"
 runuser -u "$INSTALL_USER" -- python3 -m venv "$prepare/runtime/venv"
-runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" "$WHEEL"
+runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
+runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
+runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip check
 runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -I -c '
 import importlib.util, json, socket, sys, urllib.request
 from urllib.parse import urlsplit
@@ -130,7 +136,9 @@ if [ -e "$unit" ]; then systemctl disable --now gp-web.service; fi
 rm -rf --one-file-system -- "$root"
 install -d -m 0755 -o "$INSTALL_USER" -g "$group" "$root"
 runuser -u "$INSTALL_USER" -- python3 -m venv "$root/.venv"
-runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" "$WHEEL"
+runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
+runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
+runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip check
 printf '%s\n' 'GP Plane Web' > "$root/.gp-web-owned"
 chown "$INSTALL_USER:$group" "$root/.gp-web-owned"
 if [ ! -e "$config" ]; then
