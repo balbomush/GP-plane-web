@@ -96,10 +96,27 @@ WHEELHOUSE="$prepare/wheels"
 install -m 0644 "$RUNTIME_LOCK" "$prepare/runtime.lock"
 cmp -s "$RUNTIME_LOCK" "$prepare/runtime.lock" || fail 'staged Web runtime lock mismatch; nothing stopped'
 install -d -m 0700 -o "$INSTALL_USER" -g "$group" "$prepare/runtime"
+install -d -m 0700 -o "$INSTALL_USER" -g "$group" "$prepare/runtime/pip-cache" "$prepare/runtime/pip-tmp"
+target_home="$home"
+# pip must not inherit user/site/global config or redirecting PIP_* options.
+# Preserve only explicit network/proxy trust settings; all writes stay in the
+# selected venv or this user-owned preparation namespace (including build children).
+pip_user() {
+  local pip_python="$1"; shift
+  local pip_proxy
+  local -a pip_environment=("PATH=$PATH" "HOME=$target_home" "USER=$INSTALL_USER" "LOGNAME=$INSTALL_USER"
+    "PIP_CONFIG_FILE=/dev/null" "PIP_CACHE_DIR=$prepare/runtime/pip-cache"
+    "TMPDIR=$prepare/runtime/pip-tmp" "TMP=$prepare/runtime/pip-tmp" "TEMP=$prepare/runtime/pip-tmp"
+    "PIP_NO_INPUT=1" "PIP_DISABLE_PIP_VERSION_CHECK=1")
+  for pip_proxy in http_proxy https_proxy all_proxy no_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY SSL_CERT_FILE REQUESTS_CA_BUNDLE; do
+    if [[ -v "$pip_proxy" ]]; then pip_environment+=("$pip_proxy=${!pip_proxy}"); fi
+  done
+  runuser -u "$INSTALL_USER" -- env -i "${pip_environment[@]}" "$pip_python" -I -m pip "$@"
+}
 runuser -u "$INSTALL_USER" -- python3 -m venv "$prepare/runtime/venv"
-runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
-runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
-runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -m pip check
+pip_user "$prepare/runtime/venv/bin/python" install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
+pip_user "$prepare/runtime/venv/bin/python" install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
+pip_user "$prepare/runtime/venv/bin/python" check
 runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -I -c '
 import importlib.util, json, socket, sys, urllib.request
 from urllib.parse import urlsplit
@@ -136,9 +153,9 @@ if [ -e "$unit" ]; then systemctl disable --now gp-web.service; fi
 rm -rf --one-file-system -- "$root"
 install -d -m 0755 -o "$INSTALL_USER" -g "$group" "$root"
 runuser -u "$INSTALL_USER" -- python3 -m venv "$root/.venv"
-runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
-runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
-runuser -u "$INSTALL_USER" -- "$root/.venv/bin/python" -m pip check
+pip_user "$root/.venv/bin/python" install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
+pip_user "$root/.venv/bin/python" install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
+pip_user "$root/.venv/bin/python" check
 printf '%s\n' 'GP Plane Web' > "$root/.gp-web-owned"
 chown "$INSTALL_USER:$group" "$root/.gp-web-owned"
 if [ ! -e "$config" ]; then

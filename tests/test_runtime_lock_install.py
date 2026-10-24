@@ -14,6 +14,7 @@ class RuntimeLockInstallTests(unittest.TestCase):
         self.assertLess(script.index('exit 0'),script.index('RUNTIME_LOCK='),'remove must not require runtime inputs')
         self.assertLess(script.index(lock_check),script.index('# Destructive boundary:'))
         self.assertEqual(2,script.count('--no-deps --find-links "$WHEELHOUSE" "$WHEEL"'))
-        self.assertEqual(2,script.count('-m pip check'))
+        self.assertIn('pip_user "$prepare/runtime/venv/bin/python" check',script)
+        self.assertIn('pip_user "$root/.venv/bin/python" check',script)
 
 if __name__=='__main__':unittest.main()
