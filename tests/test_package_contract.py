@@ -14,7 +14,7 @@ class PackageContractTests(unittest.TestCase):
         declaration=compatibility.declaration()
         contract={"info":{"version":"0.4.4"},"paths":{
             path:{method:{} for method in methods} for path,methods in declaration["required_operations"].items()}}
-        for version in ("0.4.4", "0.4.5a1", "0.4.5a2"):
+        for version in ("0.4.4", "0.4.5a1", "0.4.5a2", "0.4.5"):
             with self.subTest(version=version):
                 contract["info"]["version"]=version
                 compatibility.validate_core_contract(contract)
@@ -23,7 +23,7 @@ class PackageContractTests(unittest.TestCase):
                 contract["info"]["version"]=version
                 with self.assertRaisesRegex(ValueError,"unsupported Core API"):
                     compatibility.validate_core_contract(contract)
-        for version in ("0.4.4", "0.4.5a1", "0.4.5a2"):
+        for version in ("0.4.4", "0.4.5a1", "0.4.5a2", "0.4.5"):
             contract["info"]["version"]=version
             broken=json.loads(json.dumps(contract))
             del broken["paths"]["/api/auth/change-password"]

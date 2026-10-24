@@ -3,7 +3,8 @@
   "core_api_versions": [
     "0.4.4",
     "0.4.5a1",
-    "0.4.5a2"
+    "0.4.5a2",
+    "0.4.5"
   ],
   "required_operations": {
     "/api/auth/login": [
