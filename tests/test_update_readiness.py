@@ -13,7 +13,7 @@ class ReadinessExecutionTests(unittest.TestCase):
  def test_real_readiness_rejects_mixed_build_cache_and_core_failure(self):
   static=ROOT/'src/gp_control_plane_web/static'
   manifest=json.loads((static/'asset-manifest.json').read_text())
-  for scenario in ('healthy','digest','cache','core'):
+  for scenario in ('healthy','html','digest','cache','core'):
    with self.subTest(scenario=scenario):
     class Handler(http.server.BaseHTTPRequestHandler):
      def do_GET(self):
@@ -21,7 +21,9 @@ class ReadinessExecutionTests(unittest.TestCase):
        self.send_response(503 if scenario=='core' else 200);self.end_headers();self.wfile.write(b'{}');return
       name='index.html' if self.path=='/' else self.path.lstrip('/')
       assert name in manifest['assets']
-      body=(static/name).read_bytes()
+      from gp_control_plane_web.assets import index_html
+      body=index_html().encode('utf-8') if name=='index.html' else (static/name).read_bytes()
+      if scenario=='html' and name=='index.html':body+=b'wrong HTML build'
       if scenario=='digest' and name.endswith('.js'):body+=b'wrong build'
       self.send_response(200)
       self.send_header('Cache-Control','max-age=3600' if scenario=='cache' else 'no-store')

@@ -247,6 +247,7 @@ fi
 runuser -u "$INSTALL_USER" -- "$runtime/.venv/bin/python" -I -c '
 import hashlib,json,sys,time,urllib.request
 from importlib.resources import files
+from gp_control_plane_web.assets import index_html
 host,port=sys.argv[1:];host="127.0.0.1" if host=="0.0.0.0" else host
 base=f"http://{host}:{port}";assets=files("gp_control_plane_web").joinpath("static")
 manifest=json.loads(assets.joinpath("asset-manifest.json").read_text())
@@ -258,7 +259,8 @@ while True:
             with urllib.request.urlopen(base+path,timeout=2) as response:
                 data=response.read(8*1024**2+1)
                 assert len(data)<=8*1024**2 and response.status==200
-                assert hashlib.sha256(data).hexdigest()==digest, "served Web build mismatch"
+                expected=hashlib.sha256(index_html().encode("utf-8")).hexdigest() if name=="index.html" else digest
+                assert hashlib.sha256(data).hexdigest()==expected, "served Web build mismatch"
                 if name=="index.html": assert response.headers.get("Cache-Control")=="no-store"
         with urllib.request.urlopen(base+"/api/health",timeout=2) as response:
             assert response.status==200
