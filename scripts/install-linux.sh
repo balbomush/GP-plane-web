@@ -28,6 +28,16 @@ for d in "$home/gp" "$root"; do
     [ -d "$d" ] && [ ! -L "$d" ] && [ "$(readlink -f "$d")" = "$d" ] || fail 'unsafe Web installation path'
   fi
 done
+# Serialize only this Web installer; the root-owned config directory is outside
+# the disposable program tree. No Core lock, state or service is involved.
+lock=/etc/default/.gp-web-install.lock
+[ -d /etc/default ] && [ ! -L /etc/default ] && [ "$(stat -c %u /etc/default)" = 0 ] || fail 'unsafe Web config directory'
+if [ -e "$lock" ] || [ -L "$lock" ]; then
+  [ -f "$lock" ] && [ ! -L "$lock" ] && [ "$(stat -c %u "$lock")" = 0 ] && [ "$(stat -c %h "$lock")" = 1 ] || fail 'foreign Web installer lock'
+fi
+(umask 077; touch -- "$lock")
+exec 9<> "$lock"
+flock -n 9 || fail 'another Web install/remove is running; nothing stopped'
 unit=/etc/systemd/system/gp-web.service
 config=/etc/default/gp-web
 for f in "$unit" "$config"; do
@@ -60,7 +70,7 @@ if [ -e "$root" ]; then
   [ -f "$root/.gp-web-owned" ] && [ ! -L "$root/.gp-web-owned" ] &&
     [ "$(cat "$root/.gp-web-owned")" = 'GP Plane Web' ] || fail 'foreign install directory; nothing stopped'
 fi
-python3 "$(dirname "$(readlink -f "$0")")/check-web-service.py" --unit-path "$unit" --install-root "$root" --install-user "$INSTALL_USER"
+python3 "$(dirname "$(readlink -f "$0")")/check-web-service.py" --unit-path "$unit" --install-root "$root" --install-user "$INSTALL_USER" --config-path "$config"
 if [ "$OP" = remove ]; then
   # Removal requires ownership proof even when a prior partial install has no root.
   [ -e "$root/.gp-web-owned" ] || { [ ! -e "$unit" ] && [ ! -e "$config" ]; } || fail 'incomplete ownership; nothing stopped'
@@ -71,13 +81,39 @@ if [ "$OP" = remove ]; then
   printf '%s\n' 'Web removed; Core and its data/helper were not changed'
   exit 0
 fi
+shopt -s nullglob
+previous_installs=("$root"/.previous.*)
+[ "${#previous_installs[@]}" -eq 0 ] || fail 'previous Web switch needs inspection; retained files were not removed; nothing stopped'
 RUNTIME_LOCK="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/requirements-runtime.lock"
 [ -f "$RUNTIME_LOCK" ] && [ ! -L "$RUNTIME_LOCK" ] || fail 'packaged runtime lock is required; use the complete source distribution'
 [ -f "$WHEEL" ] && [ ! -L "$WHEEL" ] && [ -d "$WHEELHOUSE" ] && [ ! -L "$WHEELHOUSE" ] || fail 'prepared artifacts are required'
 printf '%s' "$SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail 'exact wheel sha256 is required'
 [ "$(sha256sum "$WHEEL" | cut -d' ' -f1)" = "$SHA256" ] || fail 'wheel checksum mismatch; nothing stopped'
 prepare=$(mktemp -d /tmp/gp-web-prepare.XXXXXX)
-trap 'rm -rf --one-file-system -- "$prepare"' EXIT
+runtime= previous= created_root=no switched=no phase=preparation
+cleanup() {
+  local result=$?
+  trap - EXIT
+  if ! rm -rf --one-file-system -- "$prepare"; then
+    printf 'ERROR: retained preparation directory: %s\n' "$prepare" >&2
+    result=1
+  fi
+  if [ "$switched" = no ]; then
+    [ -z "$runtime" ] || rm -rf --one-file-system -- "$runtime"
+    if [ "$created_root" = yes ]; then
+      rm -f -- "$root/.gp-web-owned"
+      rmdir -- "$root" || printf 'ERROR: retained incomplete first-install directory: %s\n' "$root" >&2
+    fi
+  fi
+  return "$result"
+}
+trap cleanup EXIT
+report_failure() {
+  printf "ERROR: Web install failed; phase=%s switched=%s program=%s previous=%s runtime=%s; config preserved; no rollback performed\n" "$phase" "$switched" "$root" "$previous" "$runtime" >&2
+}
+trap report_failure ERR
+trap 'report_failure; exit 130' INT
+trap 'report_failure; exit 143' TERM
 chmod 0755 "$prepare"
 # Own a stable offline input set before any removal, including nested source inputs.
 install -d -m 0755 "$prepare/wheels"
@@ -113,11 +149,23 @@ pip_user() {
   done
   runuser -u "$INSTALL_USER" -- env -i "${pip_environment[@]}" "$pip_python" -I -m pip "$@"
 }
-runuser -u "$INSTALL_USER" -- python3 -m venv "$prepare/runtime/venv"
-pip_user "$prepare/runtime/venv/bin/python" install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
-pip_user "$prepare/runtime/venv/bin/python" install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
-pip_user "$prepare/runtime/venv/bin/python" check
-runuser -u "$INSTALL_USER" -- "$prepare/runtime/venv/bin/python" -I -c '
+# Keep the venv at its final physical path: console scripts and activation files
+# contain absolute paths. Only the canonical .venv link changes at activation.
+if [ ! -e "$root" ]; then
+  install -d -m 0755 -o "$INSTALL_USER" -g "$group" "$root"
+  printf '%s\n' 'GP Plane Web' > "$root/.gp-web-owned"
+  chown "$INSTALL_USER:$group" "$root/.gp-web-owned"
+  created_root=yes
+fi
+runtime=$(mktemp -d "$root/.web-runtime.XXXXXXXX")
+chown "$INSTALL_USER:$group" "$runtime"
+runuser -u "$INSTALL_USER" -- python3 -m venv "$runtime/.venv"
+pip_user "$runtime/.venv/bin/python" install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
+pip_user "$runtime/.venv/bin/python" install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
+pip_user "$runtime/.venv/bin/python" check
+target_version=$(runuser -u "$INSTALL_USER" -- "$runtime/.venv/bin/python" -I -c 'from importlib.metadata import version;from gp_control_plane_web import __version__;assert __version__==version("gp-plane-web");print(__version__)')
+[ "$(runuser -u "$INSTALL_USER" -- "$runtime/.venv/bin/gp-web" --version)" = "gp-web $target_version" ] || fail 'prepared Web entrypoint version mismatch; nothing stopped'
+runuser -u "$INSTALL_USER" -- "$runtime/.venv/bin/python" -I -c '
 import importlib.util, json, socket, sys, urllib.request
 from urllib.parse import urlsplit
 from importlib.resources import files
@@ -148,16 +196,18 @@ with socket.socket() as s:
         rows=subprocess.check_output(['ss','-H','-ltnp',f'sport = :{port}'],text=True).splitlines()
         assert rows and all(set(re.findall(r'pid=(\d+)',r))=={pid} for r in rows), 'foreign Web listener'
 PY
-# Destructive boundary: only Web-owned objects below, never gp-control-plane-*.
-if [ -e "$unit" ]; then systemctl disable --now gp-web.service; fi
-rm -rf --one-file-system -- "$root"
-install -d -m 0755 -o "$INSTALL_USER" -g "$group" "$root"
-runuser -u "$INSTALL_USER" -- python3 -m venv "$root/.venv"
-pip_user "$root/.venv/bin/python" install --no-index --find-links "$WHEELHOUSE" --require-hashes -r "$prepare/runtime.lock"
-pip_user "$root/.venv/bin/python" install --no-index --no-deps --find-links "$WHEELHOUSE" "$WHEEL"
-pip_user "$root/.venv/bin/python" check
-printf '%s\n' 'GP Plane Web' > "$root/.gp-web-owned"
-chown "$INSTALL_USER:$group" "$root/.gp-web-owned"
+# Switching boundary: no venv creation or pip after this point. Retain every old
+# program entry until the new service has passed HTTP/resource readiness.
+phase=switch
+if [ -e "$unit" ]; then systemctl stop gp-web.service; fi
+switched=yes
+previous=$(mktemp -d "$root/.previous.XXXXXXXX")
+shopt -s dotglob nullglob
+for entry in "$root"/*; do
+  case "$entry" in "$runtime"|"$previous"|"$root/.gp-web-owned") continue;; esac
+  mv -- "$entry" "$previous/"
+done
+ln -s -- "$runtime/.venv" "$root/.venv"
 if [ ! -e "$config" ]; then
   cat > "$config" <<EOF
 # Managed by GP Plane Web
@@ -167,7 +217,10 @@ GP_WEB_PORT='$PORT'
 EOF
   chmod 0644 "$config"
 fi
-cat > "$unit" <<EOF
+new_unit=no
+if [ ! -e "$unit" ]; then
+  new_unit=yes
+  cat > "$unit" <<EOF
 # Managed by GP Plane Web
 [Unit]
 Description=GP Plane Web
@@ -181,6 +234,41 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl daemon-reload
-systemctl enable --now gp-web.service
+fi
+phase=startup
+if [ "$new_unit" = yes ]; then
+  systemctl daemon-reload
+  systemctl enable --now gp-web.service
+else
+  # Keep the existing unit bytes, drop-ins and enabled/disabled choice intact.
+  systemctl start gp-web.service
+fi
+[ "$(runuser -u "$INSTALL_USER" -- "$root/.venv/bin/gp-web" --version)" = "gp-web $target_version" ] || fail 'activated Web entrypoint version mismatch; previous program retained'
+runuser -u "$INSTALL_USER" -- "$runtime/.venv/bin/python" -I -c '
+import hashlib,json,sys,time,urllib.request
+from importlib.resources import files
+host,port=sys.argv[1:];host="127.0.0.1" if host=="0.0.0.0" else host
+base=f"http://{host}:{port}";assets=files("gp_control_plane_web").joinpath("static")
+manifest=json.loads(assets.joinpath("asset-manifest.json").read_text())
+deadline=time.monotonic()+60
+while True:
+    try:
+        for name,digest in manifest["assets"].items():
+            path="/" if name=="index.html" else "/"+name
+            with urllib.request.urlopen(base+path,timeout=2) as response:
+                data=response.read(8*1024**2+1)
+                assert len(data)<=8*1024**2 and response.status==200
+                assert hashlib.sha256(data).hexdigest()==digest, "served Web build mismatch"
+                if name=="index.html": assert response.headers.get("Cache-Control")=="no-store"
+        with urllib.request.urlopen(base+"/api/health",timeout=2) as response:
+            assert response.status==200
+        break
+    except Exception:
+        if time.monotonic()>=deadline: raise
+        time.sleep(.25)
+' "$HOST" "$PORT"
+systemctl is-active --quiet gp-web.service || fail 'new Web service is not active; old program retained'
+phase=cleanup
+rm -rf --one-file-system -- "$previous"
+cleanup
 printf '%s\n' 'Web installation complete; Core and its state/helper were not changed'

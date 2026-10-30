@@ -25,19 +25,26 @@ class ServiceOwnershipTests(unittest.TestCase):
 
     def test_owned_stopped_unit_checks_user_and_full_command(self):
         with tempfile.TemporaryDirectory() as raw:
-            root=Path(raw);unit=root/'gp-web.service';unit.write_text('# owned fixture')
+            root=Path(raw);unit=root/'gp-web.service';unit.write_text('# owned fixture');config=root/'gp-web';config.write_text('# fixture')
             install=root/'app';install.mkdir();(install/'.gp-web-owned').write_text('GP Plane Web\n')
             exe=str(install/'.venv/bin/python')
             values={'LoadState':'loaded','FragmentPath':str(unit),'User':'gpuser',
+                    'EnvironmentFiles':f'{config} (ignore_errors=no)','Environment':'','UnsetEnvironment':'',
                     'ExecStart':f'{{ path={exe} ; argv[]={exe} -m gp_control_plane_web.cli ; ignore_errors=no ; }}'}
             def show(argv,**kwargs):
                 name=next(v.split('=',1)[1] for v in argv if v.startswith('--property='))
                 return subprocess.CompletedProcess(argv,0,values[name]+'\n','')
             with patch.object(module.subprocess,'run',side_effect=show):
-                module.check(unit,install,'gpuser')
+                module.check(unit,install,'gpuser',config)
+                for name,value in [('EnvironmentFiles','/foreign (ignore_errors=no)'),('Environment','GP_WEB_PORT=12345'),('UnsetEnvironment','GP_WEB_CORE_URL'),('UnsetEnvironment','GP_WEB_PORT=19880')]:
+                    saved=values[name];values[name]=value
+                    with self.assertRaisesRegex(ValueError,'override'):module.check(unit,install,'gpuser',config)
+                    values[name]=saved
+                values['Environment']='LANG=C';values['UnsetEnvironment']='LANG'
+                module.check(unit,install,'gpuser',config)
                 values['User']='foreign'
-                with self.assertRaisesRegex(ValueError,'another user'):module.check(unit,install,'gpuser')
+                with self.assertRaisesRegex(ValueError,'another user'):module.check(unit,install,'gpuser',config)
                 values['User']='gpuser';values['ExecStart']=f'{{ path={exe} ; argv[]={exe} -m foreign ; }}'
-                with self.assertRaisesRegex(ValueError,'foreign ExecStart'):module.check(unit,install,'gpuser')
+                with self.assertRaisesRegex(ValueError,'foreign ExecStart'):module.check(unit,install,'gpuser',config)
 
 if __name__=='__main__':unittest.main()
