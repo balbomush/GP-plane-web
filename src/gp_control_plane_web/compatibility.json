@@ -1,31 +1,117 @@
 {
-  "schema": 1,
+  "schema": 2,
   "core_api_versions": [
-    "0.4.4",
-    "0.4.5a1",
-    "0.4.5a2",
-    "0.4.5",
-    "0.5.0"
+    "2.0.0-draft.33"
   ],
   "required_operations": {
-    "/api/auth/login": [
+    "/access/authentication": [
       "post"
     ],
-    "/api/auth/change-password": [
-      "post"
+    "/access/change_password": [
+      "put"
     ],
-    "/api/core/strategy-discovery/start-run": [
-      "post"
-    ],
-    "/api/core/strategy-discovery/stop-current-run": [
-      "post"
-    ],
-    "/api/core/runs/latest-log": [
+    "/data/strategies": [
       "get"
     ],
-    "/api/core/run-settings": [
+    "/data/strategies/{strategy_id}": [
+      "get"
+    ],
+    "/data/strategies/{strategy_id}/archive": [
+      "get"
+    ],
+    "/data/bundles": [
+      "get"
+    ],
+    "/data/bundles/{bundle_id}": [
+      "get"
+    ],
+    "/data/bundles/{bundle_id}/archive": [
+      "get"
+    ],
+    "/data/domain-lists": [
+      "get",
+      "post"
+    ],
+    "/data/domain-lists/{domain_list_id}": [
+      "get",
+      "put",
+      "delete"
+    ],
+    "/data/domain-lists/{domain_list_id}/domains": [
+      "get"
+    ],
+    "/data/sources/{source}": [
+      "get"
+    ],
+    "/data/sources/{source}/categories": [
+      "get"
+    ],
+    "/data/sources/{source}/categories/{category}/domains": [
+      "get"
+    ],
+    "/data/sources/{source}/update": [
+      "get",
+      "post"
+    ],
+    "/backup": [
+      "post",
+      "delete"
+    ],
+    "/backup/file": [
+      "get"
+    ],
+    "/backup/restore": [
+      "post"
+    ],
+    "/backup/restore-file": [
+      "post"
+    ],
+    "/service/status": [
+      "get"
+    ],
+    "/service/releases": [
+      "get"
+    ],
+    "/service/download": [
+      "post"
+    ],
+    "/service/updates/{update_id}": [
+      "get"
+    ],
+    "/service/updates": [
+      "post"
+    ],
+    "/data/runs": [
+      "get"
+    ],
+    "/data/runs/{run_id}": [
+      "get",
+      "delete"
+    ],
+    "/data/milestones": [
+      "get",
+      "post"
+    ],
+    "/engines/blockcheck2/start": [
+      "post"
+    ],
+    "/engines/blockcheck2-gp/start": [
+      "post"
+    ],
+    "/engines/blockcheck2-gp/runs/{run_id}/resume": [
+      "post"
+    ],
+    "/search/current": [
+      "get"
+    ],
+    "/search/stop": [
+      "post"
+    ],
+    "/data/runs/{run_id}/log": [
+      "get"
+    ],
+    "/search/events": [
       "get"
     ]
-  },
-  "view_contract": "v0.4.4 web DTOs; S2A internal routes are intentionally absent from public OpenAPI"
+  }
 }

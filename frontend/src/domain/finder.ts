@@ -1,8 +1,11 @@
+import type {components} from '../transport/core-api';
+type Stock=components['schemas']['BlockcheckStockParameters'];
+type Start=components['schemas']['BlockcheckStockStartRequest']|components['schemas']['BlockcheckGpStartRequest'];
 /** Payload semantics from v0.4.4 finder-controller, no DOM or new search logic. */
 export const domains = (raw: string|string[]) => [...new Set((Array.isArray(raw)?raw.join('\n'):String(raw || '')).split(/[,\s]+/).map(s => s.trim()).filter(Boolean))];
-export const initialPreferences = () => ({domains: [] as string[], domain_preset: 'system:required', discovery_profile: 'standard',
+export const initialPreferences = () => ({domains: [] as string[], domain_preset: 'custom', discovery_profile: 'standard',
   run_mode: 'standard', curl_parallelism: 4, enable_http: false, enable_tls12: true, enable_tls13: false,
-  debug_stdout:false,include_quic: true, enable_ipv6: false, scan_level: 'standard', repeats: 1, repeat_parallel: false,
+  debug_stdout:false,include_quic: true, enable_ipv6: false, scan_level: 'standard' as NonNullable<Stock['scan_level']>, repeats: 1, repeat_parallel: false,
   skip_dnscheck: true, skip_ipblock: true, curl_max_time: 2, curl_max_time_quic: 2, curl_max_time_doh: 2,
   limit_time_enabled: false, timeout_hours: 6});
 export function normalizePreferences(p: ReturnType<typeof initialPreferences>, maximum=10){
@@ -13,14 +16,15 @@ export function normalizePreferences(p: ReturnType<typeof initialPreferences>, m
     curl_max_time_doh:bounded(p.curl_max_time_doh||2,2,1,Number.MAX_SAFE_INTEGER),
     timeout_hours:Number.isFinite(p.timeout_hours)?p.timeout_hours:6};
 }
-export function discoveryPayload(p: ReturnType<typeof initialPreferences>, text: string) {
-  const settings = Object.fromEntries(['enable_http','enable_tls12','enable_tls13','include_quic','enable_ipv6','scan_level',
-    'repeats','repeat_parallel','skip_dnscheck','skip_ipblock','curl_max_time','curl_max_time_quic','curl_max_time_doh'].map(k=>[k,p[k as keyof typeof p]]));
+export function discoveryPayload(p: ReturnType<typeof initialPreferences>, text: string):Start {
+  const settings:Stock={debug_stdout:p.debug_stdout,enable_http:p.enable_http,enable_tls12:p.enable_tls12,enable_tls13:p.enable_tls13,
+    include_quic:p.include_quic,enable_ipv6:p.enable_ipv6,scan_level:p.scan_level,repeats:p.repeats,
+    repeat_parallel:p.repeat_parallel,skip_dnscheck:p.skip_dnscheck,skip_ipblock:p.skip_ipblock,
+    curl_max_time:p.curl_max_time,curl_max_time_quic:p.curl_max_time_quic,curl_max_time_doh:p.curl_max_time_doh};
   const protocols = [...(p.enable_http || p.enable_tls12 || p.enable_tls13 ? ['tcp'] : []), ...(p.include_quic ? ['quic'] : [])];
   if (!protocols.length) throw new Error('Выберите хотя бы один протокол для проверки');
   const selected = domains(text);
   if (!selected.length) throw new Error('Добавьте хотя бы один домен для подбора');
-  return {mode: p.run_mode === 'multi' ? 'multi_domain' : 'standard', domains: selected, protocols, settings,
-    ...(p.run_mode === 'multi' ? {curl_parallelism: p.curl_parallelism} : {}),
-    ...(p.limit_time_enabled ? {timeout_seconds: Math.max(60, Math.round(p.timeout_hours * 3600))} : {})};
+  return {domains:selected,parameters:{...settings,debug_stdout:p.debug_stdout,
+    ...(p.run_mode==='multi'?{curl_parallelism:p.curl_parallelism}:{})}};
 }

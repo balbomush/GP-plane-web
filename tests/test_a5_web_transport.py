@@ -68,28 +68,28 @@ class A5HttpBodyTests(unittest.TestCase):
     def test_json_limit_upload_limit_and_explicit_framing_errors(self) -> None:
         accepted_json = b"j" * JSON_REQUEST_MAX_BYTES
         self.assertEqual(
-            read_request_body(_environ(accepted_json), "/api/core/run-settings/save"),
+            read_request_body(_environ(accepted_json), "/api/v2/engines/blockcheck2/start"),
             accepted_json,
         )
         with self.assertRaisesRegex(ProxyRequestBodyTooLarge, "request body is too large"):
-            read_request_body(_environ(accepted_json + b"x"), "/api/core/run-settings/save")
+            read_request_body(_environ(accepted_json + b"x"), "/api/v2/engines/blockcheck2/start")
 
         # This is the real public 64 MiB backup limit, not a substituted tiny
         # candidate fixture.  Backup bytes stay opaque and Core-owned.
         upload = b"u" * BACKUP_UPLOAD_MAX_BYTES
-        self.assertEqual(read_request_body(_environ(upload), "/api/core/backups/upload"), upload)
+        self.assertEqual(read_request_body(_environ(upload), "/api/v2/backup/restore-file"), upload)
         with self.assertRaises(ProxyRequestBodyTooLarge):
-            read_request_body(_environ(upload + b"x"), "/api/core/backups/upload")
+            read_request_body(_environ(upload + b"x"), "/api/v2/backup/restore-file")
 
         with self.assertRaisesRegex(ProxyRequestBodyMalformed, "invalid content length"):
-            read_request_body({"CONTENT_LENGTH": "nope", "wsgi.input": io.BytesIO()}, "/api/core/run-settings/save")
+            read_request_body({"CONTENT_LENGTH": "nope", "wsgi.input": io.BytesIO()}, "/api/v2/engines/blockcheck2/start")
         with self.assertRaisesRegex(ProxyRequestBodyMalformed, "transfer encoding"):
             read_request_body(
                 {"CONTENT_LENGTH": "4", "HTTP_TRANSFER_ENCODING": "chunked", "wsgi.input": io.BytesIO(b"body")},
-                "/api/core/run-settings/save",
+                "/api/v2/engines/blockcheck2/start",
             )
         with self.assertRaisesRegex(ProxyRequestBodyMalformed, "truncated"):
-            read_request_body({"CONTENT_LENGTH": "4", "wsgi.input": io.BytesIO(b"two")}, "/api/core/run-settings/save")
+            read_request_body({"CONTENT_LENGTH": "4", "wsgi.input": io.BytesIO(b"two")}, "/api/v2/engines/blockcheck2/start")
 
     def test_rejected_known_length_body_is_drained_in_bounded_chunks(self) -> None:
         class RecordingStream(io.BytesIO):
@@ -108,7 +108,7 @@ class A5HttpBodyTests(unittest.TestCase):
         ):
             read_request_body(
                 {"CONTENT_LENGTH": str(len(rejected)), "wsgi.input": stream},
-                "/api/core/run-settings/save",
+                "/api/v2/engines/blockcheck2/start",
             )
         self.assertEqual(stream.tell(), len(rejected))
         self.assertTrue(stream.requested_sizes)
@@ -505,7 +505,7 @@ class A5WebRuntimeTests(unittest.TestCase):
             _wait_for_port(port)
             root = _request(port, "GET", "/")
             head = _request(port, "HEAD", "/")
-            put = _request(port, "PUT", "/api/health")
+            put = _request(port, "PATCH", "/api/health")
             self.assertEqual(root[0], 200)
             self.assertEqual(head[0], 200)
             self.assertEqual(root[1]["content-type"], "text/html; charset=utf-8")
@@ -515,8 +515,8 @@ class A5WebRuntimeTests(unittest.TestCase):
             self.assertEqual(head[2], b"")
             self.assertEqual(put[0], 501)
             self.assertNotIn("allow", put[1])
-            self.assertEqual(len(put[2]), 356)
-            self.assertEqual(put[1]["content-length"], "356")
+            self.assertEqual(len(put[2]), 358)
+            self.assertEqual(put[1]["content-length"], "358")
             self.assertEqual(put[1]["content-type"], "text/html;charset=utf-8")
         finally:
             runtime.stop()
@@ -531,12 +531,12 @@ class A5WebRuntimeTests(unittest.TestCase):
             web_port, runtime, web_thread = _start_web(core_port)
             try:
                 cases = {
-                    "invalid-content-length": b"POST /api/auth/login HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n{}",
+                    "invalid-content-length": b"POST /api/v2/access/authentication HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n{}",
                     "content-length-transfer-encoding": (
-                        b"POST /api/auth/login HTTP/1.1\r\nHost: localhost\r\n"
+                        b"POST /api/v2/access/authentication HTTP/1.1\r\nHost: localhost\r\n"
                         b"Content-Length: 2\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
                     ),
-                    "truncated": b"POST /api/auth/login HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4\r\n\r\ntwo",
+                    "truncated": b"POST /api/v2/access/authentication HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4\r\n\r\ntwo",
                 }
                 for label, request_bytes in cases.items():
                     with self.subTest(label=label):
@@ -687,7 +687,7 @@ class A5WebRuntimeTests(unittest.TestCase):
         headers: list[tuple[str, str]] = []
         environ = {
             "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/api/core/status",
+            "PATH_INFO": "/api/v2/service/status",
             "QUERY_STRING": "",
             "SERVER_NAME": "127.0.0.1",
             "SERVER_PORT": "80",
@@ -923,7 +923,7 @@ def _login_bearer(port: int) -> dict[str, str]:
     login = _request(
         port,
         "POST",
-        "/api/auth/login",
+        "/api/v2/access/authentication",
         body=b'{"username":"admin","password":"admin"}',
         headers={"Content-Type": "application/json"},
     )
@@ -940,7 +940,7 @@ def _open_first_sse_frame(port: int, bearer: dict[str, str]) -> tuple[_SsePeer, 
     peer = _SsePeer(connection, (str(connection.getsockname()[0]), int(connection.getsockname()[1])))
     try:
         request = (
-            "GET /api/web/events/stream HTTP/1.1\r\n"
+            "GET /api/v2/search/events HTTP/1.1\r\n"
             "Host: 127.0.0.1\r\n"
             f"Authorization: {bearer['Authorization']}\r\n"
             "Connection: keep-alive\r\n\r\n"
@@ -999,7 +999,7 @@ def _running_controlled_stream_core() -> Any:
             return
 
         def do_POST(self) -> None:  # noqa: N802 - HTTP handler contract
-            if self.path.split("?", 1)[0] == "/api/auth/login":
+            if self.path.split("?", 1)[0] == "/api/v2/access/authentication":
                 self._json(200, b'{"access_token":"transport-probe"}')
                 return
             self._json(404, b'{"error":"not_found"}')
@@ -1009,13 +1009,13 @@ def _running_controlled_stream_core() -> Any:
             if path == "/api/health":
                 self._json(200, b'{"status":"ok"}')
                 return
-            if path == "/api/internal/auth/verify-bearer":
+            if path == "/api/v2/service/status":
                 if self.headers.get("Authorization") == "Bearer transport-probe":
                     self._json(200, b'{"authorized":true}')
                 else:
                     self._json(401, b'{"error":"authentication_required"}')
                 return
-            if path != "/api/internal/web-events/stream":
+            if path != "/api/v2/search/events":
                 self._json(404, b'{"error":"not_found"}')
                 return
 

@@ -3,15 +3,15 @@
 from collections.abc import Callable, Iterable, Iterator
 import threading
 
-from .view_contracts import INTERNAL_WEB_EVENTS_STREAM_PATH
+
 
 
 def stream_kind(method: str, path: str) -> str | None:
     if method != "GET":
         return None
-    if path in {"/api/web/events/stream", INTERNAL_WEB_EVENTS_STREAM_PATH}:
+    if path in {"/api/v2/search/events"}:
         return "sse"
-    if path in {"/api/core/backups/download-archive", "/api/core/strategy-candidates/export"}:
+    if path == "/api/v2/backup/file" or (path.startswith("/api/v2/data/") and path.endswith("/archive")):
         return "long"
     return None
 

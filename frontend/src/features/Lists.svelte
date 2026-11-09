@@ -11,10 +11,9 @@
 </script>
 <section aria-label="Списки" class="l-stack">
   <h2>Списки доменов</h2>
-  <label>Область <select aria-label="Область" bind:value={model.scope} onchange={()=>model.newList()}><option value="finder">Подбор</option><option value="common">Общие кандидаты</option></select></label>
   <label>Список <select aria-label="Список" bind:value={model.selection} onchange={()=>model.load()}><option value="">Новый список</option>{#each model.entries() as entry}<option value={entry.key}>{entry.kind}: {entry.label}</option>{/each}</select></label>
   <button onclick={()=>model.newList()}>Новый список</button>
-  <fieldset disabled={!model.app.canMutate}><legend>Редактор списка</legend>
+  <fieldset disabled={!model.app.canMutate}><legend>Редактор списка</legend>{#if model.selection.startsWith('builtin:')}<p>Встроенный список доступен для чтения. Для изменения создайте пользовательский список.</p>{/if}
     <label>Название <input bind:value={model.name} oninput={()=>model.edit()}></label><label>Домены <textarea rows="10" bind:value={model.text} oninput={()=>model.edit()}></textarea></label>
     <p>Уникальных: {model.changes.total}. Добавится: {model.changes.added}; удалится: {model.changes.removed}; без изменений: {model.changes.unchanged}.</p>
     <label>Поиск в списке <input bind:value={model.query} oninput={()=>shown=100}></label>

@@ -57,7 +57,7 @@ class ListenerInterruptTests(unittest.TestCase):
                             time.sleep(.02)
                     if active_stream:
                         stream = urllib.request.urlopen(urllib.request.Request(
-                            f'http://127.0.0.1:{port}/api/web/events/stream',
+                            f'http://127.0.0.1:{port}/api/v2/search/events',
                             headers={'Authorization':'Bearer transport-probe'},
                         ), timeout=2)
                         self.assertEqual(stream.status,200)

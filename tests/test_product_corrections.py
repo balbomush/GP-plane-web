@@ -76,7 +76,7 @@ class WebProductCorrectionTests(unittest.TestCase):
         def environ():
             value = {}
             setup_testing_defaults(value)
-            value.update(PATH_INFO="/api/web/events/stream", HTTP_AUTHORIZATION="Bearer valid", REMOTE_ADDR="127.0.0.1", REMOTE_PORT="43210")
+            value.update(PATH_INFO="/api/v2/search/events", HTTP_AUTHORIZATION="Bearer valid", REMOTE_ADDR="127.0.0.1", REMOTE_PORT="43210")
             return value
 
         for failure_at in ("start", "write"):
@@ -92,7 +92,7 @@ class WebProductCorrectionTests(unittest.TestCase):
                     upstreams.append(upstream)
                     return upstream
                 client = mock.Mock(spec=CoreClient)
-                client.open_web_view.side_effect = open_stream
+                client.open.side_effect = open_stream
                 verified = mock.Mock(spec=CoreResponse)
                 verified.status = 200
                 web = create_web_app(client, lambda _: verified, stream_lifecycle=web_lifecycle)

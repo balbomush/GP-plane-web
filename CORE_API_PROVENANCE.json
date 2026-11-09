@@ -1,0 +1,8 @@
+{
+  "core_source": "4c59313a33da59f69bde191de1d317937fabf6ec",
+  "core_wheel_sha256": "59153225db29adb5de3514f03050f3e009d333750d0b56baede0b56daeb4f0b8",
+  "schema_sha256": "44121c5fc87996d32c99983acf3a7ea398c0e9a2f5330cd3ccb66773787ebe49",
+  "accepted_draft_sha256": "5e53672d8731a3f4b45ec863dd60732147bc5a38937b6b6c859c8569efd8498b",
+  "generator": "openapi-typescript@7.13.0",
+  "gp_ui_sha256": "a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498"
+}

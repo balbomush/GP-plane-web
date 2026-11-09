@@ -30,7 +30,7 @@ from .assets import index_html
 from .assets import asset_response
 
 
-PROXY_CORE_NAMESPACES = frozenset({"auth", "core", "service"})
+PROXY_CORE_NAMESPACES = frozenset({"api2"})
 
 
 class AuthAdapter(Protocol):
@@ -43,7 +43,7 @@ class _WebBottle(Bottle):
     """Bottle app that commits genuine SSE headers before Core's first frame."""
 
     def wsgi(self, environ: dict[str, Any], start_response: Callable[..., Any]) -> Iterable[bytes]:
-        is_event_stream = environ.get("REQUEST_METHOD") == "GET" and environ.get("PATH_INFO") == "/api/web/events/stream"
+        is_event_stream = environ.get("REQUEST_METHOD") == "GET" and environ.get("PATH_INFO") == "/api/v2/search/events"
         if not is_event_stream:
             return super().wsgi(environ, start_response)
         out = self._handle(environ)
@@ -78,7 +78,7 @@ def core_auth_adapter(core_client: CoreClient) -> AuthAdapter:
     """Make the only Web-side token check a current Core API operation."""
 
     def verify(headers: dict[str, str]) -> CoreResponse:
-        return core_client.open("GET", "/api/internal/auth/verify-bearer", headers=headers)
+        return core_client.open("GET", "/api/v2/service/status", headers=headers)
 
     return verify
 
@@ -146,25 +146,13 @@ def _dispatch(
     stream_lifecycle: WebStreamLifecycle | None,
     admission: StreamAdmission,
 ) -> HTTPResponse | Iterable[bytes]:
-    if method not in {"GET", "HEAD", "POST"}:
+    if method not in {"GET", "HEAD", "POST", "PUT", "DELETE"}:
         return unsupported_method(method)
 
     if path in SWAGGER_PATHS or path == "/openapi.json" or path == "/":
         # These paths have exact routes above; this protects direct WSGI calls.
         return _json_response({"error": "not found"}, HTTPStatus.NOT_FOUND)
 
-    if path.startswith("/api/web/"):
-        route = route_for(method, path)
-        if not route or route.namespace != "web":
-            return _verify_then_not_found(verify_bearer, headers)
-        return _open_and_relay(
-            lambda body: core_client.open_web_view(method, path, query=query, body=body, headers=headers),
-            path,
-            method,
-            environ,
-            stream_lifecycle,
-            admission, verify_bearer, headers,
-        )
 
     route = route_for(method, path)
     if route and (route.namespace in PROXY_CORE_NAMESPACES or (route.namespace == "openapi" and path != "/openapi.json")):

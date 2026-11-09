@@ -20,7 +20,7 @@ class PeerLifetimeTests(unittest.TestCase):
         from gp_control_plane_web import web_app
         env={'REMOTE_ADDR':'127.0.0.1','REMOTE_PORT':'12345','CONTENT_LENGTH':'0','wsgi.input':io.BytesIO()}
         verified=Mock(status=200);upstream=Mock();life=WebStreamLifecycle()
-        for path,expected in [('/api/core/status',None),('/api/core/backups/download-archive',None),('/api/web/events/stream',('127.0.0.1',12345))]:
+        for path,expected in [('/api/v2/service/status',None),('/api/v2/backup/file',None),('/api/v2/search/events',('127.0.0.1',12345))]:
             admission=StreamAdmission()
             with patch.object(web_app,'_relay_core_response',return_value=[]) as relay:
                 web_app._open_and_relay(lambda body:upstream,path,'GET',env,life,admission,lambda headers:verified,{})

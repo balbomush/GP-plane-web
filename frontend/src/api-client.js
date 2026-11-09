@@ -58,7 +58,7 @@ export class ApiClient {
         try { message = await response.text(); }
         catch (error) { throw this.bodyError(response, error); }
         this.assertResponseCurrent(response);
-        throw new Error(message);
+        let data;try{data=JSON.parse(message);}catch{};throw data?this.jsonError(response,data):new Error(message);
       }
       let data;
       try { data = await response.json(); }
@@ -70,37 +70,23 @@ export class ApiClient {
     }
   }
 
-  async postJson(url, payload, options = {}) {
-    const response = await this.request(url, {
-      ...options,
-      keepSessionSignal: true,
-      method: 'POST',
-      headers: { ...(options.headers || {}), 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
-    });
+  async postJson(url,payload,options={}) { return this.sendJson('POST',url,payload,options); }
+  async sendJson(method,url,payload,options={}) {
+    const response=await this.request(url,{...options,keepSessionSignal:true,method,
+      headers:{...(options.headers||{}),...(payload===undefined?{}:{'Content-Type':'application/json'})},
+      ...(payload===undefined?{}:{body:JSON.stringify(payload)})});
     try {
-      let data;
-      try {
-        data = await response.json();
-      } catch (error) {
-        const cancellation = this.bodyCancellation(response, error);
-        if (cancellation) throw cancellation;
-        // The established JSON adapter contract treats malformed response JSON
-        // as an empty payload. Cancellation and stale bodies are handled above,
-        // so neither is ever promoted to a successful result or synthetic HTTP error.
-        data = {};
-      }
+      if(response.status===204){this.assertResponseCurrent(response);return null;}
+      let data;try{data=await response.json();}catch(error){const cancellation=this.bodyCancellation(response,error);if(cancellation)throw cancellation;data={};}
       this.assertResponseCurrent(response);
-      if (!response.ok) throw this.jsonError(response, data);
+      if(!response.ok)throw this.jsonError(response,data);
       return data;
-    } finally {
-      this.releaseResponse(response);
-    }
+    }finally{this.releaseResponse(response);}
   }
 
   jsonError(response, data) {
     const apiError = data && typeof data.error === 'object' ? data.error : {};
-    const error = new Error(apiError.message || data.message || response.statusText);
+    const error = new Error([apiError.message || data?.message || response.statusText,...(Array.isArray(apiError.details)?apiError.details.map(d=>[d.field,d.message||d.code].filter(Boolean).join(': ')):[])].join(' · '));
     error.status = response.status;
     error.code = apiError.code || '';
     error.details = apiError.details || {};

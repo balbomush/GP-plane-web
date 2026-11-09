@@ -1,6 +1,7 @@
 import type {AppModel} from '../app/model.svelte';
 import {Lifetime} from '../transport/lifetime';
-import {endpoints as E,url} from '../transport/endpoints';
+import {api2,id,type Schemas} from '../transport/api2';
+import {download} from '../transport/download';
 import {domains} from '../domain/finder';
 import {createCandidateSelectionModel} from '../domain/candidate-selection.js';
 import {validCandidates} from '@gp-plane/gp-ui/format';
@@ -23,24 +24,21 @@ export class CandidatesModel {
   });}
   reset(){this.life.dispose();this.mode='domain';this.rows=[];this.index=[];this.total=0;this.more=false;this.indexMore=false;this.indexTotal=0;this.busy=false;this.indexBusy=false;this.error='';this.result=null;this.manual='';this.domain='';this.common='';this.query='';this.family='';this.required='';this.desired='';this.tested=[];this.addition='';this.resultMode='balance';this.resultBusy=false;this.version='';this.pendingVersion='';this.expanded={};this.revision++;}
   mount(){this.active=true;this.loadIndex();this.load();return()=>{this.active=false;this.life.dispose();this.busy=false;this.indexBusy=false;};}
-  get selectedCommon(){const tested=new Set(this.tested);return domains(this.common).filter(value=>tested.has(value));}
+  get selectedCommon(){return domains(this.common);}
   key(){return JSON.stringify([this.mode,this.domain,this.selectedCommon]);}
   async load(more=false) {
     this.life.cancel('page');
     const key=this.key(),offset=more?this.rows.length:0;
     this.busy=true;this.error='';if(!more){this.rows=[];this.result=null;this.total=0;this.more=false;}
     if(this.mode==='common'&&this.selectedCommon.length<2){this.busy=false;return;}
-    await this.life.run('page',signal=>this.app.api.getJson(url(E.web.strategyCandidatesPage,{view:this.mode,domain:this.mode==='domain'?this.domain||undefined:undefined,domains:this.mode==='common'?this.selectedCommon.join(','):undefined,limit:50,offset}),{signal}),data=>{
-      // Lifetime admits only this request's callback; release its busy flag
-      // even when an unsent textarea edit changed the query in the meantime.
+    const params=new URLSearchParams({limit:'50',offset:String(offset),match:this.mode==='common'?'all':'any'});
+    for(const domain of this.mode==='common'?this.selectedCommon:this.domain?[this.domain]:[])params.append('domains',domain);
+    await this.life.run('page',signal=>this.app.api.getJson(api2+'/data/strategies?'+params,{signal}),data=>{
       this.busy=false;if(key!==this.key())return;
-      if(!validCandidates(data.candidates)||typeof data.has_more!=='boolean'||!Number.isSafeInteger(data.total)||data.total<0){this.error='Неверный ответ Core';this.busy=false;return;}
-      const version=candidateVersionKey(data.version);
-      if(more&&this.version&&this.version!==version){this.load();return;}
-      if(this.version&&this.version!==version)this.expanded={};
-      this.version=version;this.rows=more?[...this.rows,...data.candidates]:data.candidates;this.total=data.total;this.more=data.has_more;this.busy=false;
-      if(Array.isArray(data.tested_domains))this.tested=domains(data.tested_domains);
-      const pending=this.pendingVersion;this.pendingVersion='';if(pending&&pending!==version)this.load();
+      const rows=data.items.map((row:Schemas['Strategy'])=>({...row,seen:row.results.map(r=>({domain:r.domain})),common_seen:[]}));
+      if(!validCandidates(rows)){this.error='Неверный ответ Core';return;}
+      this.rows=more?[...this.rows,...rows]:rows;this.total=data.total;this.more=data.offset+data.items.length<data.total;
+      const pending=this.pendingVersion;this.pendingVersion='';if(pending)this.load();
     },e=>{this.error=e.message;this.busy=false;});
   }
   async applyPreset(key:string,lists:any){
@@ -50,13 +48,12 @@ export class CandidatesModel {
     await this.life.run('common-preset',signal=>lists.read(key,'common',signal),values=>{this.common=values.join('\n');this.load();},e=>{this.error=e.message;});
   }
   editCommon(){this.life.cancel('common-preset');this.life.cancel('page');this.busy=false;}
-  async loadIndex(more=false) {
-    this.indexBusy=true;
-    await this.life.run('index',signal=>this.app.api.getJson(url(E.web.candidateDomainIndexPage,{limit:50,offset:more?this.index.length:0}),{signal}),data=>{
-      this.index=more?[...this.index,...data.domains]:data.domains||[];this.indexMore=Boolean(data.has_more);this.indexTotal=data.total||0;this.app.candidateDomainCount=this.indexTotal;this.indexBusy=false;
-      this.tested=domains(data.tested_domains||this.index.map(item=>typeof item==='string'?item:item.domain));
-    },e=>{this.error=e.message;this.indexBusy=false;});
-  }
+  private indexOffset=0;
+  async loadIndex(more=false){this.indexBusy=true;const offset=more?this.indexOffset:0;await this.life.run('index',signal=>this.app.api.getJson(api2+'/data/strategies?limit=200&offset='+offset,{signal}),data=>{
+    const names=new Set<string>(more?this.tested:[]);for(const row of data.items)for(const result of row.results)names.add(result.domain);
+    this.tested=[...names].sort();this.index=this.tested.map(domain=>({domain}));this.indexOffset=offset+data.items.length;this.indexMore=this.indexOffset<data.total;this.indexTotal=this.index.length;this.indexBusy=false;this.app.candidateDomainCount=this.index.length;
+   },e=>{this.indexBusy=false;this.error=e.message;});}
+  async archive(row:any){if(!row.archive_available)return;await this.life.run('archive',signal=>this.app.api.blob(api2+'/data/strategies/'+id(row.id)+'/archive',{signal}),({blob})=>download(blob,'gp-strategy-'+row.id+'.zip'),e=>this.error=e.message);}
   get filtered(){return this.rows.filter(row=>(!this.family||row.family===this.family)&&(!this.query||String(row.args).includes(this.query)));}
   get strategyLists(){
     const lists=new Map<string,{key:string;domain:string;protocol:string;rows:any[]}>();
@@ -82,18 +79,14 @@ export class CandidatesModel {
     else this.load(true);
   }
   get families(){return [...new Set(this.rows.map(row=>String(row.family||'')))].filter(Boolean);}
-  addDomain(value=this.addition){const domain=value.trim();if(!this.tested.includes(domain)){this.error='Выберите протестированный домен';return;}this.editCommon();this.common=domains([...domains(this.common),domain]).join('\n');this.addition='';this.load();}
+  addDomain(value=this.addition){const domain=value.trim();if(!domain)return;this.editCommon();this.common=domains([...domains(this.common),domain]).join('\n');this.addition='';this.load();}
   removeDomain(value:string){this.editCommon();this.common=domains(this.common).filter(x=>x!==value).join('\n');this.load();}
   async calculate(lists:any){
     if(this.selectedCommon.length<2){this.error='Для итогового набора нужны минимум два протестированных домена';return;}
     this.resultBusy=true;const key=this.key();
-    await this.life.run('result',async signal=>{
-      const required=await lists.read('system:required','finder',signal),desired=await lists.read('system:desired','finder',signal);
-      return {required,desired};
-    },({required,desired})=>{
-      this.resultBusy=false;if(key!==this.key())return;this.required=required.join('\n');this.desired=desired.join('\n');
-      this.result=this.selection.buildCandidateResult(this.resultMode,{required,desired:desired.filter(x=>!required.includes(x))},this.selection.uniqueStrategyRows(this.rows));
-      this.manual=this.selection.candidateResultText(this.result);
+    await this.life.run('result',async()=>({required:this.selectedCommon,desired:[] as string[]}),({required,desired})=>{
+      this.resultBusy=false;if(key!==this.key())return;this.required=required.join('\n');this.desired='';
+      this.result=this.selection.buildCandidateResult(this.resultMode,{required,desired},this.selection.uniqueStrategyRows(this.rows));this.manual=this.selection.candidateResultText(this.result);
     },e=>{this.resultBusy=false;this.error=e.message;});
   }
   useDomains(){this.app.domainText=domains(this.common||this.required).join('\n');this.app.preferences.domain_preset='custom';this.app.tab='finder';}

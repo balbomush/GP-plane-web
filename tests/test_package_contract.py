@@ -12,9 +12,9 @@ from gp_control_plane_web import assets, compatibility
 class PackageContractTests(unittest.TestCase):
     def test_declared_core_contract_rejects_unknown_version_or_missing_operation(self):
         declaration=compatibility.declaration()
-        contract={"info":{"version":"0.4.4"},"paths":{
+        contract={"info":{"version":declaration["core_api_versions"][0]},"paths":{
             path:{method:{} for method in methods} for path,methods in declaration["required_operations"].items()}}
-        for version in ("0.4.4", "0.4.5a1", "0.4.5a2", "0.4.5", "0.5.0"):
+        for version in tuple(declaration["core_api_versions"]):
             with self.subTest(version=version):
                 contract["info"]["version"]=version
                 compatibility.validate_core_contract(contract)
@@ -23,10 +23,10 @@ class PackageContractTests(unittest.TestCase):
                 contract["info"]["version"]=version
                 with self.assertRaisesRegex(ValueError,"unsupported Core API"):
                     compatibility.validate_core_contract(contract)
-        for version in ("0.4.4", "0.4.5a1", "0.4.5a2", "0.4.5", "0.5.0"):
+        for version in tuple(declaration["core_api_versions"]):
             contract["info"]["version"]=version
             broken=json.loads(json.dumps(contract))
-            del broken["paths"]["/api/auth/change-password"]
+            del broken["paths"]["/access/change_password"]
             with self.subTest(missing_operation_version=version):
                 with self.assertRaisesRegex(ValueError,"operation is unavailable"):
                     compatibility.validate_core_contract(broken)

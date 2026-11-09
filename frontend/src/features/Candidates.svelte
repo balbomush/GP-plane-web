@@ -13,13 +13,13 @@
   <label>Режим <select aria-label="Режим" bind:value={model.mode} onchange={()=>model.load()}><option value="domain">По доменам</option><option value="common">Общие стратегии</option></select></label>
   {#if model.mode==='domain'}
     <label>Домен <select aria-label="Домен" bind:value={model.domain} onchange={()=>model.load()}><option value="">Все загруженные домены</option>{#each model.index as item}{@const name=typeof item==='string'?item:item.domain}<option value={name}>{name} ({item.strategy_count??item.count??'—'})</option>{/each}</select></label>
-    <p>Доменов в индексе {model.index.length} из {model.indexTotal}</p>{#if model.indexMore}<button onclick={()=>model.loadIndex(true)} disabled={model.indexBusy}>Ещё домены</button>{/if}
+    <p>Доменов в загруженных результатах: {model.index.length}</p>{#if model.indexMore}<button onclick={()=>model.loadIndex(true)} disabled={model.indexBusy}>Ещё домены</button>{/if}
   {:else}
-    <label>Список <select aria-label="Список" bind:value={preset} onchange={()=>model.applyPreset(preset,lists)}><option value="">Свои домены</option>{#if model.tested.length}<option value="tested">Все протестированные</option>{/if}{#each lists.entries('common',true) as entry}<option value={entry.key}>{entry.label}</option>{/each}</select></label>
-    <label>Общие домены <textarea bind:value={model.common} oninput={()=>{preset='';model.editCommon();}} rows="5"></textarea></label><p>Выберите минимум два протестированных домена.</p>
-    <label>Добавить протестированный домен <input list="tested-domains" bind:value={model.addition}></label><datalist id="tested-domains">{#each model.tested as domain}<option value={domain}></option>{/each}</datalist><button onclick={()=>model.addDomain()}>Добавить домен</button>
+    <label>Список <select aria-label="Список" bind:value={preset} onchange={()=>model.applyPreset(preset,lists)}><option value="">Свои домены</option>{#if model.tested.length}<option value="tested">Загруженные домены</option>{/if}{#each lists.entries('common',true) as entry}<option value={entry.key}>{entry.label}</option>{/each}</select></label>
+    <label>Общие домены <textarea bind:value={model.common} oninput={()=>{preset='';model.editCommon();}} rows="5"></textarea></label><p>Введите минимум два домена для пересечения.</p>
+    <label>Добавить домен из загруженных результатов <input list="tested-domains" bind:value={model.addition}></label><datalist id="tested-domains">{#each model.tested as domain}<option value={domain}></option>{/each}</datalist><button onclick={()=>model.addDomain()}>Добавить домен</button>
     <div class="l-cluster">{#each domains(model.common) as domain}<button onclick={()=>model.removeDomain(domain)} aria-label={`Убрать ${domain}`}>{domain} ×</button>{/each}</div>
-    <p>Выбрано протестированных: {model.selectedCommon.length}. Прочие введённые домены не входят в запрос пересечения.</p>
+    <p>Выбрано доменов: {model.selectedCommon.length}. Все введённые домены входят в запрос пересечения.</p>
     <details><summary>Сохранение списка пересечения</summary><label>Название списка пересечения <input bind:value={presetName}></label><button onclick={()=>lists.saveCurrent('common',presetName,model.common)} disabled={!model.app.canMutate}>Сохранить список пересечения</button><button onclick={()=>lists.deleteCurrent('common',preset)} disabled={!model.app.canMutate||!lists.ownCustom('common',preset)}>Удалить список пересечения</button></details>
     <button onclick={()=>model.load()} disabled={model.busy}>Найти общие</button><button onclick={()=>model.useDomains()}>Использовать домены для подбора</button>
   {/if}
@@ -36,13 +36,13 @@
       {#if list.rows.length>200}<button onclick={()=>model.toggleList(list.key)}>{list.expanded?'Свернуть до 200':`Показать все ${list.rows.length}`}</button>{/if}
       {#if model.more}<button onclick={()=>model.moreForList(list)} disabled={model.busy}>{model.mode==='domain'&&!model.domain&&list.domain?`Открыть домен ${list.domain}`:'Ещё стратегии этого набора'}</button>{/if}
       <details><summary>Семейства стратегий</summary>{#each model.selection.strategyFamilyGroups(list.visible) as group}<details><summary>{group.family} · {group.rows.length} · {group.best.protocol}</summary><p>{group.familyReason}</p><pre>{group.rows.map(row=>String(row.args||'')).join('\n')}</pre></details>{/each}</details>
-      <Results candidates={list.visible} onCopy={text=>navigator.clipboard.writeText(text)}/>
+      <Results candidates={list.visible} onCopy={text=>navigator.clipboard.writeText(text)}/>{#each list.visible as row}{#if row.archive_available}<button onclick={()=>model.archive(row)}>ZIP стратегии {row.id}</button>{/if}{/each}
       </details>
     </section>
   {/each}
   {#if model.more}<button onclick={()=>model.load(true)} disabled={model.busy}>Загрузить ещё</button>{/if}
   {#if model.mode==='common'}<details><summary>Итог по загруженным стратегиям</summary>
-    <p>Обязательные и желательные домены берутся из системных списков. Изменить их можно на вкладке «Списки».</p>
+    <p>Расчёт использует выбранные общие домены и только загруженные стратегии; скрытых списков Core нет.</p>
     <label>Режим отбора <select aria-label="Режим отбора" bind:value={model.resultMode}><option value="coverage">Максимум покрытия</option><option value="minimal">Минимум стратегий</option><option value="balance">Баланс</option></select></label>
     <button onclick={()=>model.calculate(lists)} disabled={model.resultBusy||model.busy}>Рассчитать итог</button>
     {#if model.result}<p>{model.result.reason}</p><p>Не покрыты: {[...model.result.uncovered_required,...model.result.uncovered_desired].join(', ')||'—'}</p>{/if}

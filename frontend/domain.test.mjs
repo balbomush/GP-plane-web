@@ -5,15 +5,15 @@ import {createCandidateSelectionModel} from './src/domain/candidate-selection.js
 import {mergeLogPayload} from './src/domain/log.js';
 import {latestById} from './src/domain/history.ts';
 
-test('v0.4.4 launch contract keeps protocol/options/mode and numeric bounds',()=>{
+test('API2 launch contract keeps explicit engine parameters and numeric bounds',()=>{
   const preferences=initialPreferences();preferences.include_quic=false;
   preferences.repeats=15;preferences.curl_parallelism=23;preferences.curl_max_time=-1;
   preferences.run_mode='multi';preferences.limit_time_enabled=true;preferences.timeout_hours=0;
   const p=discoveryPayload(normalizePreferences(preferences,10),'a.example, a.example\nb.example');
-  assert.equal(p.mode,'multi_domain');assert.deepEqual(p.domains,['a.example','b.example']);
-  assert.deepEqual(p.protocols,['tcp']);assert.equal(p.curl_parallelism,10);assert.equal(p.timeout_seconds,60);
-  assert.equal(p.settings.repeats,10);assert.equal(p.settings.curl_max_time,1);assert.equal(p.settings.skip_dnscheck,true);
-  assert(!Object.hasOwn(p.settings,'debug_stdout'));
+  assert(!Object.hasOwn(p,'mode'));assert.deepEqual(p.domains,['a.example','b.example']);
+  assert(!Object.hasOwn(p,'protocols'));assert.equal(p.parameters.curl_parallelism,10);assert(!Object.hasOwn(p,'timeout_seconds'));
+  assert.equal(p.parameters.repeats,10);assert.equal(p.parameters.curl_max_time,1);assert.equal(p.parameters.skip_dnscheck,true);
+  assert.equal(p.parameters.debug_stdout,false);
   const standard=discoveryPayload(normalizePreferences({...initialPreferences(),run_mode:'standard'}),'a.example');
   assert(!Object.hasOwn(standard,'curl_parallelism'));assert(!Object.hasOwn(standard,'timeout_seconds'));
   assert.throws(()=>discoveryPayload({...initialPreferences(),enable_tls12:false,include_quic:false},'a.example'),/протокол/);

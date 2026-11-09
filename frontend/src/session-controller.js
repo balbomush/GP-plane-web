@@ -52,7 +52,7 @@ export class SessionController {
   }
   async login(credentials, onError) {
     try {
-      const data = await this._api.postJson('/api/auth/login', credentials);
+      const data = await this._api.postJson('/api/v2/access/authentication', credentials);
       this._token.store(data);
       return this.bootstrap(this._ui.load, this._ui.apply);
     } catch (error) {
@@ -63,7 +63,7 @@ export class SessionController {
   async changePassword(payload, onError) {
     const epoch = this._epoch;
     try {
-      await this._api.postJson('/api/auth/change-password', payload);
+      await this._api.sendJson('PUT','/api/v2/access/change_password',payload);
       // A previous password request must not log out a session which replaced it
       // while its response body was still being consumed.
       if (!this.isCurrent(epoch)) return false;

@@ -9,7 +9,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
-from .view_contracts import internal_web_view_path
+
 
 
 PROXY_SKIP_HEADERS = frozenset(
@@ -198,9 +198,6 @@ class CoreClient:
         self._base = core.path.rstrip("/")
         self._timeout_seconds = timeout_seconds
 
-    def web_view_path(self, external_path: str) -> str:
-        return internal_web_view_path(external_path)
-
     def open(
         self,
         method: str,
@@ -242,13 +239,3 @@ class CoreClient:
             connection.close()
             raise CoreUnavailableError(str(error)) from error
 
-    def open_web_view(
-        self,
-        method: str,
-        external_path: str,
-        *,
-        query: str = "",
-        body: bytes | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> CoreResponse:
-        return self.open(method, self.web_view_path(external_path), query=query, body=body, headers=headers)

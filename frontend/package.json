@@ -5,16 +5,19 @@
   "type": "module",
   "scripts": {
     "build": "vite build && node ../scripts/frontend-manifest.mjs",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "api:types": "openapi-typescript ../src/gp_control_plane_web/openapi.json -o src/transport/core-api.d.ts",
+    "api:check": "node ../scripts/check-api-types.mjs"
   },
   "dependencies": {
     "@gp-plane/gp-ui": "file:vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz",
     "svelte": "5.57.2"
   },
   "devDependencies": {
-    "vite": "6.4.4",
     "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "openapi-typescript": "7.13.0",
+    "svelte-check": "4.7.7",
     "typescript": "5.9.3",
-    "svelte-check": "4.7.7"
+    "vite": "6.4.6"
   }
 }

@@ -1,119 +1,30 @@
 import type {AppModel} from '../app/model.svelte';
 import {Lifetime} from '../transport/lifetime';
-import {endpoints as E,url} from '../transport/endpoints';
+import {api2,id,type Schemas} from '../transport/api2';
 import {domains} from '../domain/finder';
-
-/** Preset identities retain scope, kind and name; all pages are read before editing. */
 export class ListsModel {
-  scope=$state('finder'); selection=$state(''); name=$state(''); text=$state(''); query=$state('');
-  busy=$state(false); loading=$state(false); catalog=$state<any[]>([]); categoryQuery=$state(''); categories=$state<string[]>([]);
-  preview=$state<string[]>([]); source=$state(''); categoryBusy=$state(false); previewBusy=$state(false); original=$state<string[]>([]);
-  readonly life:Lifetime;
-  private revision=0;
-  constructor(readonly app:AppModel){this.life=new Lifetime(app.session);app.register(()=>this.reset());}
-  reset(){this.life.dispose();this.revision++;this.scope='finder';this.selection='';this.name='';this.text='';this.query='';this.original=[];this.catalog=[];this.categories=[];this.categoryQuery='';this.preview=[];this.source='';this.busy=false;this.loading=false;this.categoryBusy=false;this.previewBusy=false;}
-  edit(){this.revision++;this.life.cancel('file');}
-  choiceChanged(){this.life.cancel('preview');this.preview=[];this.previewBusy=false;}
-  get sourceBusy(){return this.categoryBusy||this.previewBusy;}
-  ownCustom(scope:string,key:string){const name=key.slice(7);return key.startsWith('custom:')&&Boolean(this.app.presets.custom?.[scope]?.[name]||this.app.presets.metadata?.[scope]?.[name]);}
-  sourceScope(scope:string,name:string){return this.ownCustom(scope,'custom:'+name)?scope:this.ownCustom(scope==='finder'?'common':'finder','custom:'+name)?scope==='finder'?'common':'finder':scope;}
-  entries(scope=this.scope,includeFallback=false) {
-    const p=this.app.presets, entries:any[]=[];
-    for(const [kind,data,meta] of [['system',p.system,p.system_metadata],['custom',p.custom,p.metadata]] as any[]) {
-      const names=new Set([...Object.keys(data?.[scope]||{}),...Object.keys(meta?.[scope]||{})]);
-      for(const name of names)entries.push({key:`${kind}:${name}`,name,kind:kind==='custom'?'user':kind,scope,label:meta?.[scope]?.[name]?.label||name});
-    }
-    for(const name of Object.keys(p.domain_sets||{}))entries.push({key:`builtin:${name}`,name,kind:'builtin',scope,label:name});
-    if(includeFallback)for(const item of this.entries(scope==='finder'?'common':'finder').filter(item=>item.kind==='user'))if(!entries.some(entry=>entry.key===item.key))entries.push({...item});
-    if(!entries.some(entry=>entry.key==='builtin:all'))entries.push({key:'builtin:all',name:'all',kind:'builtin',scope,label:'Все встроенные'});
-    return entries;
-  }
-  async read(key:string,scope:string,signal:AbortSignal) {
-    const split=key.indexOf(':'),kind=key.slice(0,split),name=key.slice(split+1);
-    if(kind==='builtin')return domains(name==='all'?Object.values(this.app.presets.domain_sets||{}).flat() as string[]:this.app.presets.domain_sets?.[name]||[]);
-    const actualKind=kind==='custom'?'user':kind;
-    if(actualKind==='user')scope=this.sourceScope(scope,name);
-    let offset=0, values:string[]=[];
-    for(let guard=0;guard<1000;guard++){
-      const page=await this.app.api.getJson(url(E.web.presetDomains,{scope,name,kind:actualKind,include_disabled:0,limit:500,offset}),{signal});
-      const rows=page.domains||[];values.push(...rows.map(row=>row.domain));
-      if(!page.has_more)return domains(values);
-      if(!rows.length)throw new Error('Core вернул пустую незавершённую страницу списка');
-      offset+=rows.length;
-    }
-    throw new Error('Список превышает предел загрузки; сохранение усечённых данных запрещено');
-  }
-  async load() {
-    const key=this.selection,scope=this.scope;if(!key){this.newList();return;}
-    const revision=++this.revision;this.loading=true;
-    await this.life.run('editor',signal=>this.read(key,scope,signal),values=>{this.loading=false;if(revision!==this.revision)return;this.name=key.slice(key.indexOf(':')+1);this.original=values;this.text=values.join('\n');},e=>{this.app.notice=e.message;this.loading=false;});
-  }
-  async useFinder(key:string) {
-    if(key==='custom')return;
-    await this.life.run('finder-preset',signal=>this.read(key,'finder',signal),values=>{
-      if(this.app.preferences.domain_preset===key)this.app.domainText=values.join('\n');
-    },e=>{this.app.notice=e.message;});
-  }
-  async saveCurrent(scope:string,name:string,text:string){
-    if(!this.app.canMutate)return;
-    name=name.trim();const values=domains(text);
-    if(!name||!values.length){this.app.notice='Укажите название и хотя бы один домен';return;}
-    await this.life.run('save-current:'+scope,signal=>this.app.api.postJson(E.web.presetSave,{scope,name,domains:values},{signal}),data=>{
-      this.app.presets=data;this.app.notice='Список сохранён';
-      if(scope==='finder'&&this.app.domainText===text)this.app.preferences.domain_preset='custom:'+name;
-    },e=>{this.app.notice=e.message;});
-  }
-  async deleteCurrent(scope:string,key:string){
-    if(!this.app.canMutate||!this.ownCustom(scope,key))return;
-    const name=key.slice(7);
-    if(!confirm(`Удалить пользовательский список «${name}»?`))return;
-    await this.life.run('delete-current:'+scope,signal=>this.app.api.postJson(E.web.presetDeleteUserLists,{scope,name},{signal}),data=>{
-      this.app.presets=data;this.app.notice='Список удалён';
-      if(scope==='finder'&&this.app.preferences.domain_preset===key)this.app.preferences.domain_preset='custom';
-    },e=>{this.app.notice=e.message;});
-  }
-  newList(){this.revision++;this.life.cancel('editor');this.life.cancel('file');this.selection='';this.name='';this.text='';this.original=[];this.loading=false;}
-  get changes(){const next=domains(this.text),before=new Set(this.original);return {total:next.length,added:next.filter(x=>!before.has(x)).length,removed:this.original.filter(x=>!next.includes(x)).length,unchanged:next.filter(x=>before.has(x)).length};}
-  async save() {
-    if(this.busy||!this.app.canMutate)return;
-    const name=this.name.trim();if(!name){this.app.notice='Укажите название списка';return;}
-    const kind=this.selection.startsWith('system:')&&name===this.selection.slice(7)?'system':'user';
-    if(kind==='user'&&!domains(this.text).length){this.app.notice='Оставьте хотя бы один домен';return;}
-    this.busy=true;
-    const scope=this.scope,values=domains(this.text),revision=this.revision;
-    await this.life.run('mutation',signal=>this.app.api.postJson(E.web.presetSave,{scope,name,kind,domains:values},{signal}),data=>{
-      this.app.presets=data;if(revision===this.revision){this.selection=`${kind==='system'?'system':'custom'}:${name}`;this.original=values;}this.busy=false;this.app.notice='Список сохранён';
-    },e=>{this.app.notice=e.message;this.busy=false;});
-  }
-  async remove() {
-    if(this.busy||!this.app.canMutate||!this.selection.startsWith('custom:'))return;
-    const name=this.selection.slice(7),scope=this.scope,revision=this.revision;
-    if(!confirm(`Удалить пользовательский список «${name}»?`))return;
-    this.busy=true;
-    await this.life.run('mutation',signal=>this.app.api.postJson(E.web.presetDeleteUserLists,{scope,name},{signal}),data=>{
-      this.app.presets=data;this.busy=false;if(revision===this.revision)this.newList();this.app.notice='Список удалён';
-    },e=>{this.app.notice=e.message;this.busy=false;});
-  }
-  async loadCatalog(update=false) {
-    if(this.sourceBusy||!this.app.canMutate)return;
-    this.categoryBusy=true;
-    await this.life.run('catalog',async signal=>{
-      const updated=update?await this.app.api.postJson(E.service.v2flyUpdateLocalStorage,{},{signal}):null;
-      const data=await this.app.api.getJson(url(E.core.v2flyCategories,{limit:5000}),{signal});
-      return {data,updated};
-    },({data,updated})=>{
-      this.catalog=data.categories||[];this.source=data.storage?.source||'';this.categoryBusy=false;
-      if(updated){
-        const warning=updated.result?.revision_warning;
-        this.app.notice=warning?`Каталог v2fly готов: ${updated.storage?.group_count??this.catalog.length} групп, но ревизия источника не подтверждена: ${String(warning)}`:'Каталог v2fly обновлен';
-      }
-    },e=>{this.app.notice=e.message;this.categoryBusy=false;});
-  }
-  async previewCategories() {
-    const categories=[...this.categories],query=this.categoryQuery;this.previewBusy=true;
-    await this.life.run('preview',async signal=>{
-      const values:string[]=[];for(const category of categories){const data=await this.app.api.getJson(url(E.core.v2flyCategoryDomains,{category}),{signal});values.push(...(data.domains||[]));}return domains(values);
-    },values=>{this.previewBusy=false;if(query===this.categoryQuery&&JSON.stringify(categories)===JSON.stringify(this.categories))this.preview=values;},e=>{this.app.notice=e.message;this.previewBusy=false;});
-  }
-  importPreview(replace=false){this.edit();this.text=domains(replace?this.preview:[...domains(this.text),...this.preview]).join('\n');this.app.notice='Предпросмотр перенесён в редактор. Для сохранения нажмите «Сохранить».';}
+ scope=$state('finder');selection=$state('');name=$state('');text=$state('');query=$state('');busy=$state(false);loading=$state(false);
+ catalog=$state<any[]>([]);categoryQuery=$state('');categories=$state<string[]>([]);preview=$state<string[]>([]);source=$state('');categoryBusy=$state(false);previewBusy=$state(false);original=$state<string[]>([]);
+ readonly life:Lifetime;private revision=0;
+ constructor(readonly app:AppModel){this.life=new Lifetime(app.session);app.register(()=>this.reset());}
+ reset(){this.life.dispose();this.revision++;this.selection='';this.name='';this.text='';this.query='';this.categoryQuery='';this.source='';this.original=[];this.catalog=[];this.preview=[];this.categories=[];this.busy=false;this.loading=false;this.categoryBusy=false;this.previewBusy=false;}
+ edit(){this.revision++;this.life.cancel('file');}
+ choiceChanged(){this.life.cancel('preview');this.preview=[];this.previewBusy=false;}
+ get sourceBusy(){return this.categoryBusy||this.previewBusy;}
+ entries(scope=this.scope,includeFallback=false){return this.app.presets.map(row=>({key:(row.kind==='user'?'custom:':'builtin:')+row.id,name:row.name,label:row.name,kind:row.kind,scope,id:row.id}));}
+ ownCustom(scope:string,key:string){return this.entries().some(p=>p.key===key&&p.kind==='user');}
+ row(key:string){return this.app.presets.find(row=>String(row.id)===key.split(':')[1]);}
+ async pages<T>(path:string,signal:AbortSignal):Promise<T[]>{let values:T[]=[];for(let offset=0;offset<200000;){const page=await this.app.api.getJson(api2+path+`?limit=200&offset=${offset}`,{signal});values.push(...page.items);offset+=page.items.length;if(offset>=page.total)return values;if(!page.items.length)throw new Error('Незавершённая страница; усечение запрещено');}throw new Error('Данные превышают предел загрузки');}
+ async read(key:string,scope:string,signal:AbortSignal){const row=this.row(key);if(!row)throw new Error('Выберите существующий список');const values=await this.pages<Schemas['DomainEntry']>('/data/domain-lists/'+row.id+'/domains',signal);return domains(values.map(v=>v.domain));}
+ async load(){if(!this.selection){this.newList();return;}const key=this.selection,revision=++this.revision;this.loading=true;await this.life.run('editor',signal=>this.read(key,this.scope,signal),values=>{this.loading=false;if(revision!==this.revision)return;this.name=this.row(key)?.name||'';this.original=values;this.text=values.join('\n');},e=>{this.loading=false;this.app.notice=e.message;});}
+ async useFinder(key:string){if(key==='custom')return;await this.life.run('finder-preset',signal=>this.read(key,'finder',signal),values=>{if(this.app.preferences.domain_preset===key)this.app.domainText=values.join('\n');},e=>this.app.notice=e.message);}
+ async saveCurrent(scope:string,name:string,text:string){if(!this.app.canMutate)return;name=name.trim();const values=domains(text);if(!name||!values.length){this.app.notice='Укажите название и хотя бы один домен';return;}await this.life.run('save-current',signal=>this.app.api.postJson(api2+'/data/domain-lists',{name,domains:values.map(domain=>({domain}))},{signal}),data=>{this.app.presets=[...this.app.presets.filter(p=>p.id!==data.id),data];this.app.refreshPresets();if(scope==='finder'&&this.app.domainText===text)this.app.preferences.domain_preset='custom:'+data.id;this.app.notice='Список сохранён';},e=>this.app.notice=e.message);}
+ async deleteCurrent(scope:string,key:string){if(!this.ownCustom(scope,key))return;this.selection=key;await this.remove();}
+ newList(){this.revision++;this.life.cancel('editor');this.life.cancel('file');this.selection='';this.name='';this.text='';this.original=[];this.loading=false;}
+ get changes(){const next=domains(this.text),before=new Set(this.original);return {total:next.length,added:next.filter(x=>!before.has(x)).length,removed:this.original.filter(x=>!next.includes(x)).length,unchanged:next.filter(x=>before.has(x)).length};}
+ async save(){if(this.busy||!this.app.canMutate)return;const existing=this.row(this.selection);if(existing?.kind==='builtin'){this.app.notice='Встроенный список доступен только для чтения. Создайте пользовательский список.';return;}const name=this.name.trim(),values=domains(this.text);if(!name||!values.length){this.app.notice='Нужны название и домены';return;}this.busy=true;const revision=this.revision;await this.life.run('mutation',signal=>this.app.api.sendJson(existing?'PUT':'POST',api2+'/data/domain-lists'+(existing?'/'+existing.id:''),{name,domains:values.map(domain=>({domain}))},{signal}),data=>{this.busy=false;if(revision===this.revision){this.selection='custom:'+data.id;this.original=values;}this.app.refreshPresets();this.app.notice='Список сохранён';},e=>{this.busy=false;this.app.notice=e.message;});}
+ async remove(){if(this.busy||!this.app.canMutate)return;const row=this.row(this.selection);if(!row||row.kind!=='user'||!confirm('Удалить пользовательский список «'+row.name+'»?'))return;this.busy=true;const revision=this.revision;await this.life.run('mutation',signal=>this.app.api.sendJson('DELETE',api2+'/data/domain-lists/'+row.id,undefined,{signal}),()=>{this.busy=false;if(revision===this.revision)this.newList();this.app.refreshPresets();this.app.notice='Список удалён';},e=>{this.busy=false;this.app.notice=e.message;});}
+ async loadCatalog(update=false){if(this.sourceBusy||!this.app.canMutate)return;this.categoryBusy=true;await this.life.run('catalog',async signal=>{if(update)await this.app.api.postJson(api2+'/data/sources/v2fly/update',undefined,{signal});return this.pages<Schemas['Category']>('/data/sources/v2fly/categories',signal);},values=>{this.catalog=values;this.source='v2fly';this.categoryBusy=false;this.app.notice=update?'Каталог обновлён':'Локальный каталог прочитан';},e=>{this.categoryBusy=false;this.app.notice=e.message;});}
+ async previewCategories(){this.previewBusy=true;const selected=[...this.categories];await this.life.run('preview',async signal=>{const values:string[]=[];for(const category of selected)values.push(...await this.pages<string>('/data/sources/v2fly/categories/'+id(category)+'/domains',signal));return domains(values);},values=>{this.preview=values;this.previewBusy=false;},e=>{this.previewBusy=false;this.app.notice=e.message;});}
+ importPreview(replace=false){this.edit();this.text=domains(replace?this.preview:[...domains(this.text),...this.preview]).join('\n');this.app.notice='Предпросмотр перенесён в редактор. Сохраните список.';}
 }
