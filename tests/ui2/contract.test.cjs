@@ -12,9 +12,25 @@ test('unknown query and legacy release shape are actually rejected; future respo
  assert.throws(()=>contract.request('GET','/service/releases?channel=stable'),/Unknown query/);const found=contract.request('GET','/service/releases?tag=alpha');
  assert.throws(()=>contract.response(found,200,{items:[{version:'0.5.0',tag:'v0.5.0-alpha.4'}]}));contract.response(found,200,{items:[{version:'0.5.0',tag:'alpha',future:1}],future:true});
 });
-test('consumer contract, route metadata and shared generated DTOs stay pinned together',()=>{
- const fs=require('node:fs'),path=require('node:path');const root=path.resolve(__dirname,'../..');
- assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root,'src/gp_control_plane_web/openapi.json'),'utf8')),contract.spec);
- assert.deepEqual(require('../../frontend/src/transport/operations.json'),Object.fromEntries(contract.operations.map(x=>[x.op.operationId,{method:x.method.toUpperCase(),path:x.path}])));
- assert.deepEqual(fs.readFileSync(path.join(root,'packages/gp-ui/src/api2/core-api.d.ts')),fs.readFileSync(path.join(root,'frontend/src/transport/core-api.d.ts')));
+test('Web and immutable gp-ui share routes across their pinned draft.34 contracts',()=>{
+ const fs=require('node:fs'),path=require('node:path'),{createHash}=require('node:crypto');
+ const root=path.resolve(__dirname,'../..');
+ const provenance=require('../../CORE_API_PROVENANCE.json');
+ const read=file=>fs.readFileSync(path.join(root,file));
+ const sha256=file=>createHash('sha256').update(read(file)).digest('hex');
+ assert.equal(sha256('src/gp_control_plane_web/openapi.json'),provenance.schema_sha256);
+ assert.equal(sha256('tests/ui2/openapi.json'),provenance.accepted_draft_sha256);
+ // Generated from the legacy fixture by openapi-typescript 7.13.0.
+ assert.equal(sha256('packages/gp-ui/src/api2/core-api.d.ts'),'c3f76a56147e04909d42e418c9aab8b657e9be9dcc05200c6d5609307c938f0c');
+ const legacyOperations=Object.fromEntries(contract.operations.map(({op,method,path})=>[
+  op.operationId,{method:method.toUpperCase(),path},
+ ]));
+ const webContract=JSON.parse(read('src/gp_control_plane_web/openapi.json'));
+ const webOperations=Object.fromEntries(Object.entries(webContract.paths).flatMap(([path,methods])=>
+  Object.entries(methods).filter(([,operation])=>operation.operationId).map(([method,operation])=>[
+   operation.operationId,{method:method.toUpperCase(),path},
+  ]),
+ ));
+ assert.deepEqual(webOperations,legacyOperations);
+ assert.deepEqual(require('../../frontend/src/transport/operations.json'),webOperations);
 });
