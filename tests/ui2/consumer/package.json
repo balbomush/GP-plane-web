@@ -1,0 +1,1 @@
+{"name":"independent-gp-consumer","private":true,"type":"module","version":"0.0.0","dependencies":{"@gp-plane/gp-ui":"file:../../../frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.11.tgz","svelte":"5.57.2"}}

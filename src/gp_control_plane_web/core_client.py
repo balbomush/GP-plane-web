@@ -187,6 +187,13 @@ class CoreResponse:
 class CoreClient:
     """Forward finite requests with caller Authorization to the Core listener."""
 
+    @property
+    def target_key(self) -> str:
+        """Opaque configuration identity for browser-owned operation references."""
+        from hashlib import sha256
+        target = f"{self._scheme}://{self._host}:{self._port}{self._base}"
+        return sha256(target.encode("utf8")).hexdigest()
+
     def __init__(self, core_url: str, *, timeout_seconds: float = 30.0):
         core = urlparse(core_url)
         if core.scheme not in {"http", "https"} or not core.hostname:

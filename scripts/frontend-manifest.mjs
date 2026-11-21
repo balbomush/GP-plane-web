@@ -10,6 +10,6 @@ const assets={};
 for(const file of ['index.html',...readdirSync(path.join(staticRoot,'assets')).sort().map(name=>'assets/'+name)])assets[file]=hash(path.join(staticRoot,file));
 const manifest={schema:1,app:JSON.parse(readFileSync(path.join(base,'frontend/package.json'),'utf8')).version,
   frontend_lock_sha256:hash(path.join(base,'frontend/package-lock.json')),
-  gp_ui:{version:'0.1.0-s2a.1',sha256:hash(path.join(base,'frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz'))},assets};
-if(manifest.gp_ui.sha256!=='a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498')throw new Error('S2A gp-ui identity changed');
+  gp_ui:{version:JSON.parse(readFileSync(path.join(base,'packages/gp-ui/package.json'),'utf8')).version,sha256:hash(path.join(base,'frontend',JSON.parse(readFileSync(path.join(base,'frontend/package.json'),'utf8')).dependencies['@gp-plane/gp-ui'].slice(5)))},assets};
+if(hash(path.join(base,'frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz'))!=='a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498')throw new Error('S2A gp-ui identity changed');
 writeFileSync(path.join(staticRoot,'asset-manifest.json'),JSON.stringify(manifest,null,2)+'\n');

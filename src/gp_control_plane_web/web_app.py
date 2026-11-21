@@ -26,7 +26,7 @@ from .http_body import ProxyRequestBodyMalformed, ProxyRequestBodyTooLarge, read
 from .legacy_http import unsupported_method
 from .stream_admission import Permit, StreamAdmission, stream_kind
 from .routes import route_for
-from .assets import index_html
+from .assets import index_html, render_index_html
 from .assets import asset_response
 
 
@@ -98,7 +98,8 @@ def create_web_app(
 
     @app.route("/", method=("GET", "HEAD"))
     def root() -> HTTPResponse:
-        return _static_response(web_assets.index().encode("utf-8"), "text/html; charset=utf-8", no_store=True)
+        html = render_index_html(web_assets.index(), getattr(core_client, "target_key", None))
+        return _static_response(html.encode("utf-8"), "text/html; charset=utf-8", no_store=True)
 
     @app.route("/swagger", method=("GET", "HEAD"))
     @app.route("/swagger/", method=("GET", "HEAD"))

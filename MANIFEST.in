@@ -8,7 +8,23 @@ include SOURCE_PROVENANCE.md
 include frontend/package.json frontend/package-lock.json frontend/index.html frontend/tsconfig.json frontend/vite.config.js frontend/svelte.config.js
 recursive-include frontend/src *.svelte *.ts *.js *.css
 include frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz
+include frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.6.tgz
+include frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.8.tgz
+include frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.9.tgz
+include frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.10.tgz
+include frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.11.tgz
+include frontend/src/transport/operations.json
+include packages/gp-ui/package.json packages/gp-ui/package-lock.json packages/gp-ui/README.md packages/gp-ui/LICENSE packages/gp-ui/tsconfig.json
+recursive-include packages/gp-ui/src *.svelte *.ts *.js *.css
 include scripts/frontend-manifest.mjs
 recursive-include tests *.py *.cjs *.json *.md
 
 include frontend/*.test.mjs
+recursive-include tests/ui2 *.svelte *.ts *.mjs *.html *.zip
+prune frontend/node_modules
+prune packages/gp-ui/node_modules
+prune tests/ui2/node_modules
+prune tests/ui2/browsers
+prune tests/ui2/consumer/node_modules
+prune tests/ui2/consumer/dist
+exclude tests/ui2/*-config.json

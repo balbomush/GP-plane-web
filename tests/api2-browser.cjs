@@ -18,7 +18,7 @@ const fs=require('node:fs');
   await page.getByRole('button',{name:'Войти',exact:true}).click();
   await page.getByRole('tab',{name:'Списки',exact:true}).waitFor();
   const channels=[];
-  await page.route('**/api/v2/service/releases?*',async route=>{const channel=new URL(route.request().url()).searchParams.get('channel');channels.push(channel);await route.fulfill({json:{channel,items:[{version:channel==='stable'?'9.0.0':'9.1.0a1',tag:channel==='stable'?'v9.0.0':'v9.1.0a1',prerelease:channel==='prerelease'}]}});});
+  await page.route('**/api/v2/service/releases?*',async route=>{const query=new URL(route.request().url()).searchParams;if(query.has('channel'))throw new Error('Legacy channel is forbidden by draft.34');const channel=query.get('tag');channels.push(channel);await route.fulfill({json:{items:[{version:channel==='stable'?'9.0.0':'9.1.0a1',tag:channel}]}});});
   await page.getByRole('tab',{name:'Настройки',exact:true}).click();
   await page.getByText('Версии и обновления',{exact:true}).click();
   await page.getByText('9.0.0 · v9.0.0',{exact:true}).waitFor();

@@ -1,0 +1,166 @@
+{
+  "authentication": {
+    "method": "POST",
+    "path": "/access/authentication"
+  },
+  "change_password": {
+    "method": "PUT",
+    "path": "/access/change_password"
+  },
+  "listStrategies": {
+    "method": "GET",
+    "path": "/data/strategies"
+  },
+  "getStrategy": {
+    "method": "GET",
+    "path": "/data/strategies/{strategy_id}"
+  },
+  "downloadStrategy": {
+    "method": "GET",
+    "path": "/data/strategies/{strategy_id}/archive"
+  },
+  "listBundles": {
+    "method": "GET",
+    "path": "/data/bundles"
+  },
+  "getBundle": {
+    "method": "GET",
+    "path": "/data/bundles/{bundle_id}"
+  },
+  "downloadBundle": {
+    "method": "GET",
+    "path": "/data/bundles/{bundle_id}/archive"
+  },
+  "listDomainLists": {
+    "method": "GET",
+    "path": "/data/domain-lists"
+  },
+  "createDomainList": {
+    "method": "POST",
+    "path": "/data/domain-lists"
+  },
+  "getDomainList": {
+    "method": "GET",
+    "path": "/data/domain-lists/{domain_list_id}"
+  },
+  "replaceDomainList": {
+    "method": "PUT",
+    "path": "/data/domain-lists/{domain_list_id}"
+  },
+  "deleteDomainList": {
+    "method": "DELETE",
+    "path": "/data/domain-lists/{domain_list_id}"
+  },
+  "getDomainListEntries": {
+    "method": "GET",
+    "path": "/data/domain-lists/{domain_list_id}/domains"
+  },
+  "getSource": {
+    "method": "GET",
+    "path": "/data/sources/{source}"
+  },
+  "listCategories": {
+    "method": "GET",
+    "path": "/data/sources/{source}/categories"
+  },
+  "listCategoryDomains": {
+    "method": "GET",
+    "path": "/data/sources/{source}/categories/{category}/domains"
+  },
+  "checkSourceUpdate": {
+    "method": "GET",
+    "path": "/data/sources/{source}/update"
+  },
+  "updateSource": {
+    "method": "POST",
+    "path": "/data/sources/{source}/update"
+  },
+  "createBackup": {
+    "method": "POST",
+    "path": "/backup"
+  },
+  "deleteBackup": {
+    "method": "DELETE",
+    "path": "/backup"
+  },
+  "downloadBackup": {
+    "method": "GET",
+    "path": "/backup/file"
+  },
+  "restoreSavedBackup": {
+    "method": "POST",
+    "path": "/backup/restore"
+  },
+  "restoreBackupFile": {
+    "method": "POST",
+    "path": "/backup/restore-file"
+  },
+  "getCoreStatus": {
+    "method": "GET",
+    "path": "/service/status"
+  },
+  "listReleases": {
+    "method": "GET",
+    "path": "/service/releases"
+  },
+  "downloadCore": {
+    "method": "POST",
+    "path": "/service/download"
+  },
+  "getCoreUpdate": {
+    "method": "GET",
+    "path": "/service/updates/{update_id}"
+  },
+  "startCoreUpdate": {
+    "method": "POST",
+    "path": "/service/updates"
+  },
+  "listRuns": {
+    "method": "GET",
+    "path": "/data/runs"
+  },
+  "getRun": {
+    "method": "GET",
+    "path": "/data/runs/{run_id}"
+  },
+  "deleteRunHistory": {
+    "method": "DELETE",
+    "path": "/data/runs/{run_id}"
+  },
+  "listMilestones": {
+    "method": "GET",
+    "path": "/data/milestones"
+  },
+  "createMilestone": {
+    "method": "POST",
+    "path": "/data/milestones"
+  },
+  "blockcheck2Start": {
+    "method": "POST",
+    "path": "/engines/blockcheck2/start"
+  },
+  "blockcheck2GpStart": {
+    "method": "POST",
+    "path": "/engines/blockcheck2-gp/start"
+  },
+  "blockcheck2GpResume": {
+    "method": "POST",
+    "path": "/engines/blockcheck2-gp/runs/{run_id}/resume"
+  },
+  "getCurrentSearch": {
+    "method": "GET",
+    "path": "/search/current"
+  },
+  "stopCurrentSearch": {
+    "method": "POST",
+    "path": "/search/stop"
+  },
+  "readRunLog": {
+    "method": "GET",
+    "path": "/data/runs/{run_id}/log"
+  },
+  "watchCurrentSearch": {
+    "method": "GET",
+    "path": "/search/events"
+  }
+}

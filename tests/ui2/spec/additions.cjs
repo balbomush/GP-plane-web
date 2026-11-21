@@ -1,0 +1,89 @@
+const {familyFilter, expectFamilyChoices, chooseFamily} = require('./family-filter.cjs');
+const {add,until,confirm,service,catalog,archive,assert,fs,path,params}=require('./common.cjs');
+for(const engine of ['blockcheck2','blockcheck2-gp'])add('history-prefill-'+engine,'history.09 running.07 search.03','New search from '+engine+' fills all saved values/current milestone without starting and validates linked list composition',async c=>{await c.nav('История поисков');await c.button('Открыть поиск').first().click();await c.text('Фактические параметры');await c.button('Новый поиск').click();assert.equal(await c.label('Движок').inputValue(),engine);assert.equal(await c.label('Домены').inputValue(),'saved.example');assert.equal(await c.label('Повторы').inputValue(),'7');assert.equal(await c.label('TLS 1.3').isChecked(),true);assert.equal(await c.label('QUIC').isChecked(),false);assert.equal(c.call('blockcheck2Start').length+c.call('blockcheck2GpStart').length,0);assert.match(await c.page.locator('.search-summary').innerText(),/№3/);await c.button('Начать поиск').click();const op=engine==='blockcheck2'?'blockcheck2Start':'blockcheck2GpStart';await until(()=>assert.equal(c.call(op).length,1));assert.equal(c.call(op)[0].body.domain_list_id,undefined);assert.deepEqual(c.call(op)[0].body.domains,['saved.example']);const expected={...params,repeats:7,enable_tls13:true,include_quic:false};if(engine==='blockcheck2')delete expected.curl_parallelism;assert.deepEqual(c.call(op)[0].body.parameters,expected);},{prepare:s=>Object.assign(s.runs[0],{engine:{id:1,code:engine,name:engine},milestone_id:0,domain_list_id:2,domains:['saved.example'],parameters:{...params,repeats:7,enable_tls13:true,include_quic:false}})});
+add('history-catalog-clear','history.11 running.09','History catalog navigation resets previous catalog filters and queries selected milestone/domains, no run_id',async c=>{await catalog(c);await c.openCatalogFilters();await c.label('Протокол').selectOption('quic');await c.openCatalogFilters();await c.label('Аргументы содержат').fill('previous-specific');await c.button('Применить фильтры').click();await c.text('Ничего не найдено');await c.nav('История поисков');await c.button('Открыть поиск').first().click();await c.button('Каталог этой вехи и доменов').click();await until(()=>assert.equal(c.call('listStrategies').at(-1).query.milestone_id,'0'));const q=c.call('listStrategies').at(-1).query;assert.equal(q.q,undefined);assert.equal(q.protocol,undefined);assert.equal(q.run_id,undefined);assert.equal(q.domains,'saved.example');assert.equal(q.offset,'0');},{prepare:s=>Object.assign(s.runs[0],{milestone_id:0,domains:['saved.example']})});
+for(const kind of ['strategy','bundle'])add('archive-composition-'+kind,'results.12 results.13 results.14 bundles.05 bundles.06','Archive '+kind+' composition appears only after real ZIP response; exact file, no invented router paths',async c=>{await c.nav('Результаты');if(kind==='bundle')await c.button('Комплекты').click();await c.page.locator(kind==='bundle'?'[data-bundle="1"]':'[data-strategy="s-0"]').click();const filename=kind==='bundle'?'bundle.conf':'strategy.args';assert.equal(await c.page.getByText(filename,{exact:true}).count(),0);const download=c.page.waitForEvent('download');await c.button(kind==='bundle'?'Скачать ZIP комплекта':'Скачать ZIP стратегии').click();const file=path.join(c.output,'composition-'+kind+'.zip');await(await download).saveAs(file);assert.deepEqual(fs.readFileSync(file),archive(kind));await c.text(filename);assert(!/\/opt\/|\/etc\/|на роутере успешно/i.test(await c.page.locator('main').innerText()));});
+add('service-status-values','service.01','Core summary displays actual version/API/storage/busy operation, no invented metrics or engine-readiness proof',async c=>{await service(c);await c.button('Проверить состояние Core').click();const text=await c.page.locator('main').innerText();for(const value of ['9.8.7','2','error','backup_restore'])assert(text.includes(value),'Core summary lost actual '+value);assert(!/движок готов|\d+\s*%|ETA/i.test(text));},{prepare:s=>Object.assign(s.status,{core_version:'9.8.7',storage:'error',busy:true,operation:'backup_restore'})});
+add('combobox-escape','keyboard.focus catalog.picker','Domain combobox exposes expanded options, Escape closes, remove chip via keyboard, unknown input survives',async c=>{await catalog(c);const input=c.page.getByRole('combobox',{name:'Домены фильтра'});await input.fill('one');await c.visible(c.page.getByRole('listbox'));assert.equal(await input.getAttribute('aria-expanded'),'true');await input.press('Escape');assert.equal(await c.page.getByRole('listbox').count(),0);await input.fill('private-unknown.example');await input.press('Enter');const remove=c.button('Убрать домен private-unknown.example');await c.visible(remove);await remove.focus();await c.page.keyboard.press('Enter');assert.equal(await remove.count(),0);});
+// Explicitly synchronize the late response or observed browser cancellation, then flush render frames.
+async function late(c,op,actionA,actionB,assertB){const observed=[];c.page.on('requestfinished',r=>observed.push({url:r.url(),failed:false}));c.page.on('requestfailed',r=>observed.push({url:r.url(),failed:true}));let release;let lateCall;c.state.delay[op]=()=>{lateCall=c.call(op).at(-1);return new Promise(r=>release=r);};await actionA();await until(()=>assert(release));delete c.state.delay[op];await actionB();release();const matches=x=>{const u=new URL(x.url);return u.pathname===lateCall.path&&JSON.stringify([...u.searchParams])===JSON.stringify(lateCall.queryEntries);};await until(()=>assert(lateCall.response!==undefined||observed.some(x=>x.failed&&matches(x))));await until(()=>assert(observed.some(matches)));await c.page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await assertB();}
+add('race-details-settled','results.08','After response completion/cancellation late detail A cannot replace chosen B',async c=>{await catalog(c);await late(c,'getStrategy',()=>c.page.locator('[data-strategy="s-0"]').click(),async()=>{await c.page.locator('[data-strategy="s-10"]').click();await c.text(c.state.strategies[10].args);},async()=>assert.equal(await c.page.locator('[data-selected-args]').innerText(),c.state.strategies[10].args));});
+add('race-preset-settled','search.02 search.03','After response completion/cancellation late preset cannot overwrite edited own domains',async c=>{await late(c,'getDomainListEntries',()=>c.label('Список доменов').selectOption('1'),async()=>{await c.label('Список доменов').selectOption('');await c.label('Домены').fill('own-final.example');},async()=>assert.equal(await c.label('Домены').inputValue(),'own-final.example'));});
+add('list-use-complete','lists.08 search.03','Use saved list fills exact67domains/preset without command; edited composition drops link on Start',async c=>{await c.nav('Списки доменов');await c.page.locator('[data-list="2"]').click();await c.text('d66.example');await c.button('Использовать в поиске').click();const expected=Array.from({length:67},(_,i)=>'d'+i+'.example');assert.deepEqual((await c.label('Домены').inputValue()).split('\n'),expected);assert.equal(await c.label('Список доменов').inputValue(),'2');assert.equal(c.call('blockcheck2GpStart').length,0);await c.label('Домены').fill(expected.concat('additional.example').join('\n'));await c.button('Начать поиск').click();await until(()=>assert.equal(c.call('blockcheck2GpStart').length,1));assert.deepEqual(c.call('blockcheck2GpStart')[0].body.domains,expected.concat('additional.example'));assert.equal(c.call('blockcheck2GpStart')[0].body.domain_list_id,undefined);});
+add('catalog-overlap','catalog.page-identity results.07','Overlapping page does not duplicate IDs or merge different IDs having identical args',async c=>{await catalog(c);c.state.faults.listStrategies=(body,u)=>{const offset=Number(u.searchParams.get('offset')||0),items=offset?c.state.strategies.slice(45,80):c.state.strategies.slice(0,50);return{data:{items,total:80,offset,limit:50,milestone_id:3}};};await c.button('Загрузить ещё стратегии').click();await until(async()=>assert.equal(await c.page.locator('[data-strategy]').count(),80));assert.deepEqual(await c.page.locator('[data-strategy]').evaluateAll(es=>es.map(e=>e.dataset.strategy)),Array.from({length:80},(_,i)=>'dup-'+String(i).padStart(3,'0')));assert.equal(await c.page.locator('[data-strategy="dup-000"]').count(),1);assert.equal(await c.page.locator('[data-strategy="dup-001"]').count(),1);},{prepare:s=>{const b=s.strategies[0];s.strategies=Array.from({length:80},(_,i)=>({...b,id:'dup-'+String(i).padStart(3,'0'),protocol:'tls',args:i<2?'--same exact':'--other '+i}));}});
+add('archive-disabled-and-null-family','results.10 results.12','Unknown family remains unscored; unavailable archive has no composition request, args can still be copied',async c=>{await catalog(c);await c.page.locator('[data-strategy="s-0"]').click();await c.visible(c.page.locator('[data-selected-args]'));assert(await c.button('Скачать ZIP стратегии').isDisabled());assert.equal(c.call('downloadStrategy').length,0);assert.equal(await c.page.getByText('Состав полученного ZIP',{exact:true}).count(),0);await c.button('Копировать аргументы').click();assert.equal(await c.page.evaluate(()=>navigator.clipboard.readText()),'--unknown-safe');assert(!/высокая надежность|лучший вариант|рейтинг/.test(await c.page.locator('main').innerText()));},{prepare:s=>{Object.assign(s.strategies[0],{family:'unknown',family_rank:null,family_reason:'Описание не сохранено',archive_available:false,args:'--unknown-safe'});s.strategies=[s.strategies[0]];}});
+add('gp-minimum','search.09 search.12','Minimum GP parallelism1 and force scan are actually accepted and shown in pending run',async c=>{await c.label('Домены').fill('one.example');await c.label('Параллелизм curl').fill('1');await c.label('Уровень сканирования').selectOption('force');await c.button('Начать поиск').click();await c.text('120 / 500');assert.equal(c.call('blockcheck2GpStart')[0].body.parameters.curl_parallelism,1);assert.equal(c.call('blockcheck2GpStart')[0].body.parameters.scan_level,'force');});
+add('bundle-source-links','bundles.04 bundle.links','Each source retains code/name and known link; null reference explicitly unspecified rather than fabricated',async c=>{await c.nav('Результаты');await c.button('Комплекты').click();await c.page.locator('[data-bundle="1"]').click();await c.text('Автор');await c.visible(c.button('Скачать ZIP комплекта'));const detail=c.page.locator('[aria-label="Подробности результата"]');await c.check('bundle.links','Known source link is a real anchor with exact target',async()=>assert.equal(await detail.locator('a[href="https://example.org/source"]').count(),1));await c.check('bundles.04','Missing source reference is explicitly marked',async()=>assert.match(await detail.innerText(),/ссылка.*не указана|ссылка.*не сохранена/i));assert((await detail.innerText()).includes('fixture'));assert((await detail.innerText()).includes('other'));});
+add('bundle-row-domains','bundle.row-domains','Before detail equal-size bundles identify confirmation domains as in accepted bundle rows',async c=>{await c.nav('Результаты');await c.button('Комплекты').click();await c.visible(c.page.locator('[data-bundle="1"]'));for(const[id,domain]of[[1,'one.example'],[2,'two.example']])await c.check('bundle.row-domains','Bundle'+id+' shows '+domain,async()=>assert((await c.page.locator('[data-bundle="'+id+'"]').innerText()).includes(domain)));assert.equal(c.call('getBundle').length,0);},{prepare:s=>{const b=s.bundles[0];s.bundles=[{...b,id:1,name:'Равное имя',results:[{id:1,domain:'one.example'}]},{...b,id:2,name:'Равное имя',results:[{id:2,domain:'two.example'}]}];}});
+add('strategy-dependency-note','results.11','Arguments with assets are copyable but not presented as a complete standalone supply',async c=>{await catalog(c);await c.page.locator('[data-strategy="s-0"]').click();await c.visible(c.page.locator('[data-selected-args]'));const detail=c.page.locator('[aria-label="Подробности результата"]');assert.match(await detail.innerText(),/необходимые файлы|зависимост|одной строки.*недостаточно|аргументы.*файлы.*ZIP/i);});
+
+add('catalog-server-sort','results.05','Protocol/rank/null/family/ID order from full server query is preserved; id mode is not silently regrouped',async c=>{await catalog(c);assert.deepEqual(await c.page.locator('[data-strategy]').evaluateAll(es=>es.map(e=>e.dataset.strategy)),['sort-c','sort-a','sort-b','sort-d']);await c.openCatalogFilters();await c.label('Порядок').selectOption('id');await c.button('Применить фильтры').click();await until(()=>assert.equal(c.call('listStrategies').at(-1).query.sort,'id'));await until(async()=>assert.deepEqual(await c.page.locator('[data-strategy]').evaluateAll(es=>es.map(e=>e.dataset.strategy)),['sort-a','sort-b','sort-c','sort-d']));},{prepare:s=>{const b=s.strategies[0];s.strategies=[{...b,id:'sort-a',protocol:'tls',family:'multi',family_rank:1},{...b,id:'sort-b',protocol:'tls',family:'multi',family_rank:1},{...b,id:'sort-c',protocol:'tls',family:'fake',family_rank:0},{...b,id:'sort-d',protocol:'tls',family:'unknown',family_rank:null}];}});
+add('catalog-filter-race-settled','results.03 results.15','Late catalog A with distinct data cannot replace B after response completion/cancellation',async c=>{await catalog(c);await late(c,'listStrategies',async()=>{await c.openCatalogFilters();await c.label('Аргументы содержат').fill('alpha-specific');await c.button('Применить фильтры').click();},async()=>{await c.openCatalogFilters();await c.label('Аргументы содержат').fill('beta-specific');await c.button('Применить фильтры').click();await c.visible(c.page.locator('[data-strategy="race-b"]'));},async()=>{assert.equal(await c.page.locator('[data-strategy="race-a"]').count(),0);assert.equal(await c.page.locator('[data-strategy="race-b"]').count(),1);});},{prepare:s=>{const b=s.strategies[0];s.strategies=[{...b,id:'race-a',args:'--alpha-specific'},{...b,id:'race-b',args:'--beta-specific'}];}});
+add('repeat-parallel-relevance','search.11 search.17','At one repeat parallel-repeat control disabled and summary not applicable; two repeats enables control',async c=>{assert.equal(await c.label('Повторы').inputValue(),'1');await c.check('search.11','Parallel-repeat disabled for1 exactly as accepted form',async()=>assert(await c.label('Параллельные повторы').isDisabled()));await c.page.locator('.launch-details summary').click();await c.check('search.17','Summary marks parallel repeat not applicable for1',async()=>assert.match(await c.page.locator('.search-summary').innerText(),/Не применяется|не применимо/i));await c.label('Повторы').fill('2');assert.equal(await c.label('Параллельные повторы').isDisabled(),false);});
+add('family-filter-options', 'results.04',
+  'Discover several family options, select one, observe its request and rows, then restore all types',
+  async c => {
+    await catalog(c);
+    await c.openCatalogFilters();
+    const control = familyFilter(c.page);
+    let choicesReady = false;
+    await c.check('results.04', 'Several labelled, enabled families and the all-types option are available', async () => {
+      await until(() => expectFamilyChoices(control, ['', 'fake', 'multisplit']));
+      assert.equal(await control.inputValue(), '');
+      choicesReady = true;
+    });
+    if (!choicesReady) return;
+
+    const rows = c.page.locator('[data-strategy]');
+    const ids = () => rows.evaluateAll(elements => elements.map(row => row.dataset.strategy));
+    const all = ['family-fake', 'family-multi-a', 'family-multi-b'];
+    const matches = all.slice(1);
+
+    async function revealRow(id) {
+      const row = c.page.locator('[data-strategy="' + id + '"]');
+      const closedGroup = c.page.locator('details:not([open])').filter({ has: row });
+      if (await closedGroup.count()) await closedGroup.locator(':scope > summary').click();
+      await row.waitFor({ state: 'visible' });
+    }
+
+    async function applyFamily(value) {
+      await chooseFamily(control, value);
+      const [reply] = await Promise.all([
+        c.page.waitForResponse(response =>
+          new URL(response.url()).pathname === '/api/v2/data/strategies' &&
+          response.request().method() === 'GET'),
+        c.button('Применить фильтры').click(),
+      ]);
+      assert.equal(reply.status(), 200);
+      return new URL(reply.url()).searchParams;
+    }
+
+    await until(async () => assert.deepEqual(await ids(), all));
+    let selected = false;
+    await c.check('results.04', 'Selecting multisplit requests family=multisplit and shows the two matching IDs', async () => {
+      const query = await applyFamily('multisplit');
+      assert.deepEqual(query.getAll('family'), ['multisplit']);
+      assert.equal(query.get('offset'), '0');
+      await until(async () => assert.deepEqual(await ids(), matches));
+      for (const id of matches) await revealRow(id);
+      selected = true;
+    });
+    if (!selected) return;
+
+    await c.check('results.04', 'Selecting all types omits family and restores the original IDs', async () => {
+      const query = await applyFamily('');
+      assert(!query.has('family'), 'Reset must omit family');
+      assert.equal(query.get('offset'), '0');
+      await until(async () => assert.deepEqual(await ids(), all));
+      for (const id of all) await revealRow(id);
+    });
+  }, {
+    prepare(state) {
+      const base = state.strategies[0];
+      state.strategies = [
+        { ...base, id: 'family-multi-b', protocol: 'tls', family: 'multisplit', family_rank: 1 },
+        { ...base, id: 'family-fake', protocol: 'tls', family: 'fake', family_rank: 0 },
+        { ...base, id: 'family-multi-a', protocol: 'tls', family: 'multisplit', family_rank: 1 },
+      ];
+    },
+  });

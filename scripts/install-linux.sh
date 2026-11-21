@@ -247,8 +247,11 @@ fi
 runuser -u "$INSTALL_USER" -- "$runtime/.venv/bin/python" -I -c '
 import hashlib,json,sys,time,urllib.request
 from importlib.resources import files
-from gp_control_plane_web.assets import index_html
-host,port=sys.argv[1:];host="127.0.0.1" if host=="0.0.0.0" else host
+from gp_control_plane_web.assets import index_html,render_index_html
+from gp_control_plane_web.core_client import CoreClient
+host,port,core_url=sys.argv[1:];host="127.0.0.1" if host=="0.0.0.0" else host
+rendered_index=render_index_html(index_html(),CoreClient(core_url).target_key)
+index_digest=hashlib.sha256(rendered_index.encode("utf-8")).hexdigest()
 base=f"http://{host}:{port}";assets=files("gp_control_plane_web").joinpath("static")
 manifest=json.loads(assets.joinpath("asset-manifest.json").read_text())
 deadline=time.monotonic()+60
@@ -259,7 +262,7 @@ while True:
             with urllib.request.urlopen(base+path,timeout=2) as response:
                 data=response.read(8*1024**2+1)
                 assert len(data)<=8*1024**2 and response.status==200
-                expected=hashlib.sha256(index_html().encode("utf-8")).hexdigest() if name=="index.html" else digest
+                expected=index_digest if name=="index.html" else digest
                 assert hashlib.sha256(data).hexdigest()==expected, "served Web build mismatch"
                 if name=="index.html": assert response.headers.get("Cache-Control")=="no-store"
         with urllib.request.urlopen(base+"/api/health",timeout=2) as response:
@@ -268,7 +271,7 @@ while True:
     except Exception:
         if time.monotonic()>=deadline: raise
         time.sleep(.25)
-' "$HOST" "$PORT"
+' "$HOST" "$PORT" "$CORE_URL"
 systemctl is-active --quiet gp-web.service || fail 'new Web service is not active; old program retained'
 phase=cleanup
 rm -rf --one-file-system -- "$previous"

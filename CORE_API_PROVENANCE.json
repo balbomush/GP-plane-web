@@ -1,8 +1,10 @@
 {
-  "core_source": "4c59313a33da59f69bde191de1d317937fabf6ec",
-  "core_wheel_sha256": "59153225db29adb5de3514f03050f3e009d333750d0b56baede0b56daeb4f0b8",
-  "schema_sha256": "44121c5fc87996d32c99983acf3a7ea398c0e9a2f5330cd3ccb66773787ebe49",
-  "accepted_draft_sha256": "5e53672d8731a3f4b45ec863dd60732147bc5a38937b6b6c859c8569efd8498b",
+  "core_source": "0f05cf164d6ab9bcb25b330ccb56ae9988732f2f",
+  "core_wheel_sha256": "46c3e197a84e13164f84a79a76bb729584c25b272bfaa7436ef1cb981c951d36",
+  "schema_sha256": "f0651093280be573e9e8ee171ec576d3fe685e3a4b69e084daf253fbd8bee8c4",
+  "accepted_draft_sha256": "c18b3944e4f6f8b2ff3cc4d40fe8ceb47657e72c4de96adfede281af0fc1a436",
   "generator": "openapi-typescript@7.13.0",
-  "gp_ui_sha256": "a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498"
+  "gp_ui_sha256": "66af16a8b4350cdc469a4f496513507e4259505a655c92f0634c8cbfd9d6f12d",
+  "gp_ui_version": "0.2.0-ui2.11",
+  "legacy_gp_ui_sha256": "a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498"
 }

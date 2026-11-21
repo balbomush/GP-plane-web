@@ -71,7 +71,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
   try { await pendingBlob; assert(false, 'session abort after blob headers resolved'); } catch (error) { assert(error.name === 'AbortError', 'blob body abort changed semantics'); }
   assert(blobSignal.aborted, 'composed blob signal was released before body completion');
   const malformed = new ApiClient({fetch: async () => ({ok:true, status:200, json: async () => { throw new Error('malformed'); }})});
-  assert(JSON.stringify(await malformed.postJson('/malformed', {})) === '{}', 'successful malformed JSON no longer used the established empty fallback');
+  let malformedRejected=false;try{await malformed.postJson('/malformed', {});}catch(error){malformedRejected=error.message==='malformed';}assert(malformedRejected,'incomplete successful JSON must not become an empty successful restore/update result');
 
   // Password completion belongs to its source epoch; cancelling its response
   // body after a replacement session must not log the replacement out.
@@ -185,7 +185,7 @@ const server=http.createServer((request,response)=>{
 (async()=>{await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
 try {
   for(const method of ['getJson','postJson']) { let token='old',session=new AbortController(); const api=new ApiClient({getToken:()=>token,getSignal:()=>session.signal,onUnauthorized:()=>{token='';session.abort();}}); let error; try {await (method==='getJson'?api.getJson(origin+'/401'):api.postJson(origin+'/401',{}));} catch(value){error=value;} assert(token==='',method+' did not log out after body consumption'); if(method==='getJson') assert(error.message.includes('session expired detail'), 'GET 401 text was lost'); else assert(error.status===401&&error.code==='unauthorized'&&error.details.test===1&&error.data.error.message==='session expired detail','POST 401 details were lost'); }
-  assert(JSON.stringify(await new ApiClient().postJson(origin+'/malformed',{}))==='{}','malformed successful POST did not retain fallback');
+  let malformed;try{await new ApiClient().postJson(origin+'/malformed',{});}catch(error){malformed=error;}assert(malformed instanceof SyntaxError,'malformed successful POST was falsely acknowledged');
   const timeout=new DOMException('Caller deadline reached','TimeoutError'),pre=new AbortController(),live=new AbortController();pre.abort(timeout); let preError; try {await new ApiClient({getSignal:()=>live.signal}).getJson(origin+'/ok',{signal:pre.signal});} catch(error){preError=error;} assert(preError===timeout&&preError.name==='TimeoutError','pre-aborted caller reason was not preserved');
   const caller=new AbortController(),session=new AbortController();const heldGate=new Promise(resolve=>held500Ready=resolve);const pending=new ApiClient({getSignal:()=>session.signal}).postJson(origin+'/hold500',{}, {signal:caller.signal});await heldGate;const reason=new DOMException('deadline','TimeoutError');caller.abort(reason);held500.end('true}');let cancel;try{await pending;}catch(error){cancel=error;}assert(cancel===reason&&cancel.name==='TimeoutError','HTTP-500 body cancellation became a synthetic HTTP error');
   // A 401 is still a pending response body.  Replacing the owning session while

@@ -22,6 +22,12 @@ def validate_assets() -> None:
 def index_html() -> str:
     return files(__package__).joinpath("static/index.html").read_text(encoding="utf-8")
 
+def render_index_html(html: str, target: str | None) -> str:
+    if isinstance(target, str) and re.fullmatch(r"[0-9a-f]{64}", target):
+        return html.replace("</head>", f'<meta name="gp-core-target" content="{target}"></head>', 1)
+    return html
+
+
 def asset_response(name: str) -> HTTPResponse:
     if not re.fullmatch(r"[A-Za-z0-9_-]+\.(?:js|css)", name):
         return HTTPResponse(status=404, body=b"")

@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "core_api_versions": [
-    "2.0.0-draft.33"
+    "2.0.0-draft.34"
   ],
   "required_operations": {
     "/access/authentication": [

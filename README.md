@@ -2,14 +2,13 @@
 
 Независимый Web-клиент GP Plane Core. Python-пакет
 `gp-plane-web`, namespace `gp_control_plane_web`, команда `gp-web`.
-Svelte shell и экраны: подбор Standard/Multi, журнал и прогресс, история, кандидаты
-и точное копирование, списки/v2fly, настройки, пароль, релизы Core и бекапы.
-Эта ветка адаптирована к публичному **API 2 draft.33** принятого Core
-`4c59313a33da59f69bde191de1d317937fabf6ec`. Опубликованный прежний Core 0.5.0
-с API 1 не совместим с этой веткой: одного номера Python-пакета недостаточно
-для проверки совместимости. Web не устанавливает Core. Локальные сборки пока
-сохраняют номер `0.1.0`; это не замена файлов опубликованного выпуска.
-Номер и публикация следующего выпуска определяются отдельно.
+Svelte shell с боковой навигацией: поиск blockcheck2/blockcheck2-gp, текущий поиск и журнал,
+стратегии и сохранённые комплекты, история, списки/v2fly, обслуживание Core и backup.
+Web 0.1.1 использует публичный **API 2 draft.34**. Для установки подходит
+Core 0.5.0 [alpha.5](https://github.com/balbomush/GP-plane/releases/tag/v0.5.0-alpha.5)
+или сборка Core с тем же совместимым API и операциями из
+`src/gp_control_plane_web/compatibility.json`. Прежние выпуски Core с API 1
+несовместимы. Установщик Web проверяет контракт работающего Core.
 
 Bottle 0.13.4 / Cheroot 11.1.2 сохранены. Web не устанавливает и не импортирует
 Python Core, не читает SQLite, конфиги/vault Core, не владеет движком или helper.
@@ -44,6 +43,9 @@ ID; встроенные списки доступны для чтения. Ин
 восстановление из выбранного файла и удаление. Восстановление из файла — сразу
 восстановление пользовательских данных, а не отдельная загрузка в хранилище.
 Пароль и эксплуатационные настройки установки не заменяются резервной копией.
+Ручной повтор восстановления после потери ответа доступен, если Core сообщает
+`backup_restore_idempotency: true`. Без этой возможности Web не предлагает
+повтор восстановления с неизвестным результатом.
 
 ## Сборка из отдельных источников
 
@@ -51,8 +53,8 @@ ID; встроенные списки доступны для чтения. Ин
 Node24.19.0/npm11.17.0, tracked locks, Python build/setuptools84.0.0 и заранее
 загруженных Python wheels. Глобальное окружение обновлять не нужно.
 
-1. Используйте уже включённый immutable `frontend/vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz`.
-2. Проверьте SHA256 `a1ed233f5ae2fd9830c2158737ad080f1deacfb84090d0efe88ce365b3289498`.
+1. Используйте включённый exact `frontend/vendor/gp-plane-gp-ui-0.2.0-ui2.11.tgz`.
+2. Проверьте SHA256 `66af16a8b4350cdc469a4f496513507e4259505a655c92f0634c8cbfd9d6f12d`.
    Библиотеку не пересобирайте; соседние Core/библиотечные checkout не нужны.
 3. В `frontend`: `npm ci`, `npm run check`, `npm run build`. Используется архив из lock, не symlink.
 4. В корне: `python -m build --no-isolation`. Python wheel/sdist содержат
@@ -73,11 +75,11 @@ Node24.19.0/npm11.17.0, tracked locks, Python build/setuptools84.0.0 и зара
 
 - `src/gp_control_plane_web/`: Web-owned listener, HTTP proxy, session transport,
   ограничения/stream cleanup и package assets. Перенос из MIT Core: `PROVENANCE.json`.
-- `frontend/src/app/`: shell/session и единственный владелец accepted run.
-- `frontend/src/features/`: Svelte DOM и state/controllers каждого экрана.
+- `frontend/src/app/shell.svelte.ts`: вход, memory-only bearer и жизненный цикл GP-области.
+- `frontend/src/features/Settings.svelte`: Web-owned обслуживание, backup, вехи, доступ; update_id хранится по origin и fingerprint настроенного Core. Прежние несвязанные с App экраны сохранены только как исторический исходный материал существующих регрессий, не runtime fallback.
 - `frontend/src/transport/`: отмена по сессии/выбору, SSE/reconnect, URLs/download.
 - `frontend/src/domain/`: прежние чистые run/log/candidate algorithms с provenance.
-- `packages/gp-ui/`: общий компонент и чистое форматирование; [контракт](packages/gp-ui/README.md).
+- `packages/gp-ui/src/api2/`: общие поиск/текущий поиск/стратегии/комплекты/история/списки, один владелец SSE и scoped тема; старые root Results/format экспорты сохранены; [контракт](packages/gp-ui/README.md).
 - Core: auth/storage/algorithms/jobs/vault/root и свои HTTP API; Web — HTTP peer.
 - Horizon: свой controller/allowlist/auth/navigation/loader/consumer/lock. Подключение
   отдельным S2B на согласованном SHA, здесь отсутствует.
@@ -187,4 +189,8 @@ Horizon consumer, loader и lock остаются отдельным S2B; это
 
 ### Проверки API 2
 
-Актуальная установленная browser-матрица: `tests/api2_browser.py`, HTTP/Linux: `tests/api2_installed_http.py`, модели: `frontend/api2-model.test.mjs`. Прежние `qualify_frontend.py` и `frontend-*.cjs` с API1 fixtures — исторические сценарии; их прежний PASS не подтверждает эту адаптацию.
+Приёмочная матрица скомпилированного Web: `node tests/ui2/runner.cjs <config.json>` (свои loopback fixtures, output и optional group). Контракт fixtures: `node --test tests/ui2/contract.test.cjs`, зависимости — `npm ci` в tests/ui2. Установленная пара: `tests/api2_browser.py` вызывает тот же runner с локальными url/coreUrl и новым installed-browser; реальные движки не используются. Независимый consumer: `tests/ui2/consumer`. Старые чистые регрессии: `frontend/*.test.mjs`. Прежние `qualify_frontend.py` и `frontend-*.cjs` с API1 fixtures — исторические сценарии; их прежний PASS не подтверждает эту адаптацию.
+
+Локальная реализация по макетам 2026-11-15 не является новым публичным выпуском, аппаратной ZIP-save приёмкой или интеграцией Horizon. Кандидат фиксируется отдельным manifest рабочего diff и пакетов без commit/push.
+
+Обычный HTTP LAN поддерживается без отключения защит браузера: SHA256 ZIP имеет JS fallback, UUID использует CSPRNG getRandomValues, а legacy copy применяется только при отсутствии Clipboard API, не при отказе разрешения.

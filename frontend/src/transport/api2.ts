@@ -6,7 +6,7 @@ export const api2='/api/v2';
 export const backupUploadMedia:keyof paths['/backup/restore-file']['post']['requestBody']['content']='application/octet-stream';
 export const id=(value:string|number)=>encodeURIComponent(String(value));
 export class CoreApi extends ApiClient {
-  releases(channel:'stable'|'prerelease',options?:any):Promise<Schemas['ReleaseList']>{return this.getJson(api2+'/service/releases?channel='+channel,options);}
+  releases(tag:'stable'|'prerelease'|'alpha',options?:any):Promise<Schemas['ReleaseList']>{return this.getJson(api2+'/service/releases?tag='+tag,options);}
   current(options?:any):Promise<Schemas['CurrentSearch']>{return this.getJson(api2+'/search/current',options);}
   service(options?:any):Promise<Schemas['CoreStatus']>{return this.getJson(api2+'/service/status',options);}
   runs(offset=0,options?:any):Promise<Schemas['RunPage']>{return this.getJson(api2+`/data/runs?limit=50&offset=${offset}`,options);}

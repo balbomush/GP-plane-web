@@ -1,6 +1,6 @@
 {
   "name": "gp-plane-web-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "api:check": "node ../scripts/check-api-types.mjs"
   },
   "dependencies": {
-    "@gp-plane/gp-ui": "file:vendor/gp-plane-gp-ui-0.1.0-s2a.1.tgz",
+    "@gp-plane/gp-ui": "file:vendor/gp-plane-gp-ui-0.2.0-ui2.11.tgz",
     "svelte": "5.57.2"
   },
   "devDependencies": {

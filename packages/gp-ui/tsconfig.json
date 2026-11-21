@@ -1,0 +1,1 @@
+{"extends":"../../frontend/tsconfig.json","compilerOptions":{"types":[]},"include":["src/**/*.ts","src/**/*.svelte","src/**/*.js"]}

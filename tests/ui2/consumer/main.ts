@@ -1,0 +1,9 @@
+import {mount} from 'svelte';import Host from './Host.svelte';import spec from '../openapi.json';
+// A separately implemented adapter. It intentionally has no dependency on Web.
+const operations=Object.fromEntries(Object.entries(spec.paths).flatMap(([path,item])=>Object.entries(item).filter(([,o])=>o&&typeof o==='object'&&'operationId' in o).map(([method,o])=>[(o as any).operationId,{method,path}])));
+const client:any=new Proxy({
+ copy:(text:string)=>navigator.clipboard.writeText(text),
+ save:async(blob:Blob,name:string)=>{const a=document.createElement('a');const u=URL.createObjectURL(blob);a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),30000);},
+ watchCurrentSearch:(receive:any,connected:any)=>{const events=new EventSource('/api/v2/search/events');events.onopen=()=>connected(true);events.onerror=()=>connected(false);events.addEventListener('search',e=>receive(JSON.parse((e as MessageEvent).data)));return()=>events.close();},
+},{get(target,key){if(key in target)return(target as any)[key];const op=operations[String(key)];if(!op)return undefined;return async(input:any={},options:any={})=>{let path=op.path;for(const [k,v]of Object.entries(input.path||{}))path=path.replace('{'+k+'}',encodeURIComponent(String(v)));const q=new URLSearchParams();for(const[k,v]of Object.entries(input.query||{}))if(v!==undefined){if(Array.isArray(v))for(const item of v)q.append(k,String(item));else q.set(k,String(v));};const res=await fetch('/api/v2'+path+(q.size?'?'+q:''),{...options,method:op.method.toUpperCase(),...(input.body?{body:JSON.stringify(input.body),headers:{'content-type':'application/json'}}:{})});if(!res.ok)throw new Error('Consumer HTTP '+res.status);if(res.status===204)return;return res.headers.get('content-type')?.includes('json')?res.json():res.blob();};}});
+mount(Host,{target:document.getElementById('app')!,props:{client}});

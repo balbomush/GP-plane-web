@@ -80,6 +80,10 @@ export class SessionController {
     this._state = 'idle';
     this._ui.login(message);
   }
+  dispose() {
+    this._invalidate();
+    this._state = 'idle';
+  }
   unauthorized() {
     if (this._token.get()) this.logout('Your session has expired. Sign in again.');
   }

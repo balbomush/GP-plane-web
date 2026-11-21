@@ -77,7 +77,7 @@ export class ApiClient {
       ...(payload===undefined?{}:{body:JSON.stringify(payload)})});
     try {
       if(response.status===204){this.assertResponseCurrent(response);return null;}
-      let data;try{data=await response.json();}catch(error){const cancellation=this.bodyCancellation(response,error);if(cancellation)throw cancellation;data={};}
+      let data;try{data=await response.json();}catch(error){const cancellation=this.bodyCancellation(response,error);if(cancellation)throw cancellation;if(response.ok)throw error;data={};}
       this.assertResponseCurrent(response);
       if(!response.ok)throw this.jsonError(response,data);
       return data;

@@ -1,44 +1,23 @@
 <script lang="ts">
-  import {onDestroy} from 'svelte';
-  import {AppModel} from './app/model.svelte';
-  import {ListsModel} from './features/lists-model.svelte';
-  import {CandidatesModel} from './features/candidates-model.svelte';
-  import {BackupsModel} from './features/backups-model.svelte';
-  import Finder from './features/Finder.svelte';
-  import History from './features/History.svelte';
-  import Terminal from './features/Terminal.svelte';
-  import Candidates from './features/Candidates.svelte';
-  import Lists from './features/Lists.svelte';
-  import Settings from './features/Settings.svelte';
-  import Status from './features/Status.svelte';
-  import './styles/app.css';
-  const app=new AppModel(),lists=new ListsModel(app),candidates=new CandidatesModel(app),backups=new BackupsModel(app);
-  let username=$state(''),password=$state('');
-  function tabKey(event:KeyboardEvent){const keys=tabs.map(row=>row[0]),index=keys.indexOf(app.tab);let next=index;if(event.key==='ArrowRight')next=(index+1)%keys.length;else if(event.key==='ArrowLeft')next=(index+keys.length-1)%keys.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=keys.length-1;else return;event.preventDefault();app.tab=keys[next];(event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role=tab]')[next].focus();}
-  const tabs=[['finder','Подбор'],['history','История'],['candidates','Кандидаты'],['terminal','Терминал'],['lists','Списки'],['settings','Настройки']];
-  onDestroy(()=>app.dispose());
-  async function login(event:SubmitEvent){event.preventDefault();await app.login(username,password);password='';}
+ import {onMount,onDestroy} from 'svelte';import {Shell} from './app/shell.svelte';import {GpSearch,GpCurrentSearch,GpStrategies,GpBundles,GpHistory,GpDomainLists} from '@gp-plane/gp-ui/api2';import Settings from './features/Settings.svelte';import './styles/app.css';
+ const app=new Shell();let username=$state(''),password=$state(''),theme=$state('dark'),menu=$state(false),results=$state('strategies');onMount(()=>{void app.restore();});onDestroy(()=>app.dispose());
+ const showRun=$derived(Boolean(app.gp.current.active||app.gp.terminal||app.gp.knownRun));
+ const navigation=[['search','Поиск'],['results','Результаты'],['history','История поисков'],['lists','Списки доменов'],['service','Обслуживание']];
 </script>
-<main class="app-shell l-stack">
-  <header class="l-cluster"><h1>GP Plane Web</h1>{#if app.token}<button class="secondary" onclick={()=>app.session.logout()}>Выйти</button>{/if}</header>
-  {#if !app.ready}
-    {#if !app.token}<form onsubmit={login}><h2>Вход</h2><label>Логин <input bind:value={username} autocomplete="username" required></label><label>Пароль <input type="password" bind:value={password} autocomplete="current-password" required></label><button disabled={app.loginBusy||app.boot==='loading'}>Войти</button></form>
-    {:else}<p role="status">{app.boot==='loading'?'Загрузка Core…':'Не удалось загрузить Core'}</p><button onclick={()=>app.retry()} disabled={app.boot==='loading'}>Повторить загрузку</button>{/if}
-    {#if app.error}<p role="alert">{app.error}</p>{/if}
-  {:else}
-    <Status {app}/>
-    <div aria-label="Разделы" role="tablist" tabindex="-1" class="tabs l-cluster" onkeydown={tabKey}>{#each tabs as [key,label]}<button id={`tab-${key}`} role="tab" class="tab-button" class:active={app.tab===key} aria-selected={app.tab===key} aria-controls={`tab-panel-${key}`} tabindex={app.tab===key?0:-1} onclick={()=>app.tab=key}>{label}</button>{/each}</div>
-    <p role="status" aria-live="polite">{app.notice}</p>{#if app.error}<p role="alert">{app.error}</p>{/if}
-    <div id={`tab-panel-${app.tab}`} role="tabpanel" aria-labelledby={`tab-${app.tab}`} class="tab-page active panel">
-    {#if app.tab==='finder'}<Finder {app} {lists}/>
-    {:else if app.tab==='history'}<History {app}/>
-    {:else if app.tab==='candidates'}<Candidates model={candidates} {lists}/>
-    {:else if app.tab==='terminal'}<Terminal {app}/>
-    {:else if app.tab==='lists'}<Lists model={lists}/>
-    {:else if app.tab==='settings'}<Settings {app} {backups}/>{/if}
-    </div>
-  {/if}
-</main>
-<style>
-  :global(body){margin:0}main{max-width:1200px;margin:auto;padding:1rem}:global(label){display:block;margin:.5rem 0}:global(textarea){width:100%;box-sizing:border-box}:global([data-result] code){color:inherit}:global(pre){overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.tabs{flex-wrap:wrap}:global(fieldset){min-width:0}:global(button){cursor:pointer}:global(button:disabled){cursor:default}:global(input),:global(select),:global(textarea),:global(button){max-width:100%}[role=alert]{color:#c44}:global(section){min-width:0}
-</style>
+<div class="gp-shell" data-theme={theme}><a class="skip-link" href="#main">К содержимому</a><header class="app-header"><div class="brand"><button class="menu-button" aria-label="Меню" aria-expanded={menu} onclick={()=>menu=!menu}>☰</button><span class="brand-symbol">gp</span><strong>GP Plane <small>Web</small></strong></div><div class="header-end"><div class="core-link" role="status"><span>{!app.ready?'Вход в Core':(app.gp.statusFresh?'Core подключён':'Статус Core недоступен')+(app.gp.currentFresh?'':' · Текущий поиск недоступен')+(app.gp.connected?'':' · трансляция поиска недоступна')}</span>{#if app.gp.status}<span>{app.gp.status.core_version}</span>{/if}</div><div class="header-actions"><button onclick={()=>theme=theme==='dark'?'light':'dark'} aria-label="Тема">{theme==='dark'?'Светлая тема':'Тёмная тема'}</button>{#if app.ready}<button onclick={()=>{password='';app.auth.logout();}}>Выйти</button>{/if}</div></div></header>
+ {#if !app.ready}<main id="main" class="login-area"><section class="login-card"><p class="eyebrow">Доступ к Core</p><h1>Войти</h1><form onsubmit={async e=>{e.preventDefault();await app.login(username,password);if(app.ready)password='';}} novalidate><label>Логин<input name="username" autocomplete="username" spellcheck="false" bind:value={username}/></label><label>Пароль<input name="password" type="password" autocomplete="current-password" bind:value={password}/></label>{#if app.error}<p class="error" role="alert">{app.error}</p>{/if}<button class="primary" disabled={app.loginBusy}>{app.loginBusy?'Вход…':'Войти'}</button></form></section></main>
+ {:else}<div class="shell-layout"><aside class:open={menu}><p class="eyebrow">Рабочая область</p><nav aria-label="Разделы GP Plane"><div class="workspace-links">{#each navigation.filter(([id])=>id!=='service') as [id,name] (id)}<button aria-current={app.tab===id?'page':undefined} onclick={()=>{app.tab=id;menu=false;}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d={id==='search'?'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0':id==='results'?'M12 3 2 8l10 5 10-5-10-5M2 12l10 5 10-5M2 16l10 5 10-5':id==='history'?'M4 7a9 9 0 1 1-1 9M3 3v6h6M12 7v5l4 2':'M8 5h13M8 12h13M8 19h13M3 5h1M3 12h1M3 19h1'}/></svg>{name}</button>{/each}</div><div class="system-links"><p class="eyebrow">Система</p><button aria-current={app.tab==='service'?'page':undefined} onclick={()=>{app.tab='service';menu=false;}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 7h7m4 0h7M3 17h12m4 0h2M10 4v6M15 14v6"/></svg>Обслуживание</button></div></nav></aside><main id="main" class="workspace" data-view={app.tab==='search' && showRun ? 'current-search' : app.tab}>
+ {#if app.gp.status?.busy}<p role="status" class="global-notice">Core занят: {app.gp.status.operation}. Чтение и навигация доступны.</p>{/if}{#if app.gp.error}<p role="alert" class="global-notice error">{app.gp.error}</p>{/if}{#if app.gp.statusError||app.gp.currentError}
+ <div role="alert" class="global-notice error">
+ {#if app.gp.statusError}<div>Статус Core · {app.gp.statusError}</div>{/if}
+ {#if app.gp.currentError}<div>Текущий поиск · {app.gp.currentError}</div>{/if}
+ <button type="button" onclick={()=>app.gp.refresh()}>Повторить чтение</button>
+ </div>
+ {/if}
+ {#if app.tab==='search'}{#if showRun}<GpCurrentSearch client={app.client} session={app.gp}/>{:else}<GpSearch client={app.client} session={app.gp}/>{/if}
+ {:else if app.tab==='results'}<div class="tabs results-tabs"><button aria-pressed={results==='strategies'} onclick={()=>results='strategies'}>Стратегии</button><button aria-pressed={results==='bundles'} onclick={()=>results='bundles'}>Комплекты</button></div>{#if results==='strategies'}<GpStrategies client={app.client} session={app.gp}/>{:else}<GpBundles client={app.client} session={app.gp}/>{/if}
+ {:else if app.tab==='history'}<GpHistory client={app.client} session={app.gp} onNew={()=>app.tab='search'} onCurrent={()=>app.tab='search'} onCatalog={context=>{app.gp.catalogContext=context;app.tab='results';}}/>
+ {:else if app.tab==='lists'}<GpDomainLists client={app.client} session={app.gp} onSearch={()=>app.tab='search'}/>
+ {:else}<Settings {app}/>{/if}
+ </main></div><footer>GP Plane · Core API 2</footer>{/if}
+</div>

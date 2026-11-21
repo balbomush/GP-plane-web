@@ -39,12 +39,13 @@ with (root/'core.stderr').open('w',encoding='utf8') as ce,(root/'web.stderr').op
     config={'url':'http://127.0.0.1:'+str(wr['port']),'coreUrl':'http://127.0.0.1:'+str(cr['port']),'output':str(root)}
     (root/'browser-config.json').write_text(json.dumps(config),encoding='utf8')
     with (root/'browser.log').open('w',encoding='utf8') as log:
-        r=subprocess.run(['node',str(tests/'api2-browser.cjs'),str(root/'browser-config.json')],stdout=log,stderr=subprocess.STDOUT,cwd=root,env=env,timeout=180)
+        r=subprocess.run(['node',str(tests/'ui2/runner.cjs'),str(root/'browser-config.json')],stdout=log,stderr=subprocess.STDOUT,cwd=root,env=env,timeout=900)
     metrics=command(web,'settled-metrics');(root/'metrics.json').write_text(json.dumps(metrics,indent=2))
     assert metrics['metrics']['active_web_streams']==0,metrics
     assert r.returncode==0,'browser assertions failed; see durable browser.log'
     credentials=json.loads((root/'final-password.json').read_text())
     http_checks=verify('http://127.0.0.1:'+str(cr['port']),config['url'],credentials['password'])
+    (root/'final-password.json').unlink()  # own synthetic handoff only, not durable evidence
     (root/'http-checks.json').write_text(json.dumps(http_checks,indent=2))
     metrics=command(web,'settled-metrics');(root/'metrics-after-http.json').write_text(json.dumps(metrics,indent=2))
     deadline=time.monotonic()+5
